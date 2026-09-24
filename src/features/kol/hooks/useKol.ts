@@ -1,0 +1,63 @@
+import { useState, useEffect, useCallback } from 'react';
+import { kolService } from '../services/kol.service';
+import type { Kol } from '../types/kol.type';
+
+export function useKol() {
+  const [kols, setKols] = useState<Kol[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Ambil semua data dari database Laravel
+  const fetchKols = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await kolService.getAllKols();
+      setKols(data);
+    } catch (error) {
+      console.error('Gagal mengambil data KOL dari backend:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchKols();
+  }, [fetchKols]);
+
+  // Fungsi untuk menambah data KOL baru ke backend
+  const addKol = async (newData: Omit<Kol, 'id' | 'kode_referral'>) => {
+    try {
+      setLoading(true);
+      await kolService.createKol(newData);
+      // Ambil ulang data terbaru setelah berhasil nambah
+      await fetchKols();
+    } catch (error) {
+      console.error('Gagal menambahkan data KOL:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fungsi untuk menghapus data KOL dari backend
+  const removeKol = async (id: number) => {
+    try {
+      setLoading(true);
+      await kolService.deleteKol(id);
+      // Ambil ulang data terbaru setelah dihapus
+      await fetchKols();
+    } catch (error) {
+      console.error('Gagal menghapus data KOL:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { 
+    kols, 
+    loading, 
+    refetch: fetchKols, 
+    addKol, 
+    removeKol 
+  };
+}
