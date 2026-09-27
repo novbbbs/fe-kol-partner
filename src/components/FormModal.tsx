@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
-import { Search, ChevronDown, Check } from 'lucide-react';
+import { Search, ChevronDown, Check, Plus, Save, AlertCircle } from 'lucide-react';
 import { DatePicker } from './ui/date-picker';
+import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 
 interface FieldConfig {
   name: string;
   label: string;
-  type?: 'text' | 'select' | 'date';
+  type?: 'text' | 'select' | 'date' | 'number-only' | 'textarea';
   options?: any[];
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
+  minLength?: number;
+  maxLength?: number;
 }
 
 interface FormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitSuccess: (formData: Record<string, any>) => Promise<void>;
+  onSubmitSuccess: (formData: Record<string, any>) => Promise<void> | void;
   initialData?: Record<string, any> | null;
   titleCreate?: string;
   titleEdit?: string;
@@ -31,7 +34,6 @@ const generateRandomReferral = () => {
   for (let i = 0; i < 3; i++) {
     randomLetters += letters.charAt(Math.floor(Math.random() * letters.length));
   }
-  
   const randomNumbers = Math.floor(10000 + Math.random() * 90000);
   return `${randomLetters}${randomNumbers}`;
 };
@@ -68,7 +70,7 @@ function SearchableSelect({
     if (typeof opt === 'string' || typeof opt === 'number') {
       return { label: String(opt), value: opt };
     }
-    const label = opt.label !== undefined ? opt.label : (opt.name || opt.nama_provinsi || opt.provinsi || opt.text || '');
+    const label = opt.label !== undefined ? opt.label : (opt.name || opt.text || '');
     const val = opt.value !== undefined ? opt.value : (opt.id !== undefined ? opt.id : label);
     return { label: String(label), value: val };
   });
@@ -83,8 +85,8 @@ function SearchableSelect({
     <div className="relative w-full text-xs" ref={dropdownRef}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-          isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+        className={`w-full h-10 px-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+          isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800 shadow-2xs'
         }`}
       >
         <span className={selectedOption !== undefined ? '' : 'text-slate-400'}>
@@ -153,10 +155,14 @@ export default function FormModal({
 }: FormModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isEditMode = Boolean(initialData);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    setValidationError(null);
     if (initialData) {
       setFormData(initialData);
     } else {
@@ -175,19 +181,47 @@ export default function FormModal({
       });
       setFormData(initialValues);
     }
-  }, [initialData, isOpen, fields]);
+  }, [isOpen, initialData, fields]);
 
-  const handleChange = (name: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const handleChange = (field: FieldConfig, value: any) => {
+    setValidationError(null);
+    let newValue = value;
+
+    if (field.type === 'number-only' || field.name === 'whatsapp') {
+      newValue = String(newValue).replace(/\D/g, '');
+      const maxLen = field.name === 'whatsapp' ? 15 : (field.maxLength || 15);
+      if (newValue.length > maxLen) {
+        newValue = newValue.slice(0, maxLen);
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, [field.name]: newValue }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
+
     try {
       setIsSubmitting(true);
-      await onSubmitSuccess(formData);
+      
+      const resolvedName = formData.name || formData.campaign_name || formData.nama_kol || formData.title || '';
+
+      const finalPayload = {
+        ...formData,
+        name: resolvedName,
+        campaign_name: resolvedName,
+        whatsapp: String(formData.whatsapp || '').replace(/\D/g, ''),
+      };
+
+      if (!resolvedName) {
+        setValidationError('Nama atau judul wajib diisi.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      await onSubmitSuccess(finalPayload);
       setIsSubmitting(false);
-      onClose();
     } catch (error) {
       console.error('Gagal menyimpan form:', error);
       setIsSubmitting(false);
@@ -196,87 +230,122 @@ export default function FormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={isDarkMode ? 'dark bg-[#1f2028] text-white border-[#2e303a]' : 'bg-white text-slate-800'}>
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? titleEdit : titleCreate}</DialogTitle>
-          <DialogDescription>
-            {isEditMode ? 'Perbarui informasi data yang sudah ada.' : 'Masukkan data baru ke dalam sistem.'}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className={`rounded-3xl border-0 p-0 shadow-2xl max-w-4xl w-full overflow-hidden ${
+        isDarkMode ? 'bg-[#1f2028] text-white' : 'bg-white text-slate-800'
+      }`}>
+        
+        {/* HEADER MODAL (Tanpa tombol X manual agar tidak bertindih) */}
+        <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100 dark:border-[#2e303a]">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-bold shadow-xs">
+              <Plus className="w-5 h-5" />
+            </div>
+            <DialogHeader className="space-y-0.5 text-left">
+              <DialogTitle className="text-base font-bold tracking-tight">
+                {isEditMode ? titleEdit : titleCreate}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
+                {isEditMode ? 'Perbarui informasi data yang sudah ada.' : 'Masukkan data baru ke dalam sistem.'}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+        </div>
 
-        <form 
-          onSubmit={handleSubmit} 
-          className="space-y-4 text-xs mt-2 max-h-[70vh] overflow-y-auto px-1 no-scrollbar"
-        >
-          {fields.map((field) => {
-            return (
-              <div key={field.name}>
-                {field.type === 'date' ? (
-                  <div className="space-y-1">
-                    <label className="block font-semibold text-slate-500 dark:text-slate-400">
-                      {field.label}
-                    </label>
-                    <DatePicker
-                      value={formData[field.name] || ''}
-                      onChange={(dateString) => handleChange(field.name, dateString)}
-                      placeholder={field.placeholder || `Pilih ${field.label.toLowerCase()}`}
-                      isDarkMode={isDarkMode}
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block font-semibold mb-1 text-slate-500 dark:text-slate-400">
-                      {field.label}
-                    </label>
-                    {field.type === 'select' ? (
-                      <SearchableSelect
-                        options={field.options || []}
-                        value={formData[field.name]}
-                        onChange={(val) => handleChange(field.name, val)}
-                        isDarkMode={isDarkMode}
-                      />
-                    ) : (
-                      <div className="relative">
-                        <input
-                          type="text"
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+            {validationError && (
+              <Alert variant="destructive" className="rounded-2xl bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 py-2.5 px-4">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                <AlertTitle className="text-xs font-bold">Peringatan Validasi</AlertTitle>
+                <AlertDescription className="text-xs opacity-90">{validationError}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className={`px-8 py-6 rounded-3xl border ${
+              isDarkMode ? 'bg-[#16171d]/40 border-[#2e303a]' : 'bg-white border-blue-200/80 shadow-xs'
+            }`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                {fields.map((field) => {
+                  const isTextarea = field.type === 'textarea';
+                  return (
+                    <div 
+                      key={field.name} 
+                      className={`space-y-1.5 ${isTextarea ? 'sm:col-span-2' : ''}`}
+                    >
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {field.label} {field.required && <span className="text-rose-500">*</span>}
+                      </label>
+
+                      {field.type === 'date' ? (
+                        <DatePicker
+                          value={formData[field.name] || ''}
+                          onChange={(dateString) => handleChange(field, dateString)}
+                          placeholder={field.placeholder || `Pilih ${field.label.toLowerCase()}`}
+                          isDarkMode={isDarkMode}
+                        />
+                      ) : field.type === 'select' ? (
+                        <SearchableSelect
+                          options={field.options || []}
+                          value={formData[field.name]}
+                          onChange={(val) => handleChange(field, val)}
+                          placeholder={`Pilih ${field.label}`}
+                          isDarkMode={isDarkMode}
+                        />
+                      ) : isTextarea ? (
+                        <textarea
+                          rows={3}
                           required={field.required}
-                          disabled={field.name === 'kode_referral' && !isEditMode}
                           value={formData[field.name] !== undefined ? formData[field.name] : ''}
-                          onChange={(e) => handleChange(field.name, e.target.value)}
-                          placeholder={field.placeholder || ''}
-                          className={`w-full p-2.5 rounded-xl border outline-none transition ${
-                            field.name === 'kode_referral' && !isEditMode ? 'bg-slate-100 dark:bg-[#16171d]/50 text-slate-400 cursor-not-allowed font-mono tracking-wider' : ''
-                          } ${
-                            isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                          onChange={(e) => handleChange(field, e.target.value)}
+                          placeholder={field.placeholder || `Masukkan ${field.label}`}
+                          className={`w-full p-3 rounded-xl border text-xs outline-none transition resize-none ${
+                            isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-2xs'
                           }`}
                         />
-                        {field.name === 'kode_referral' && !isEditMode && (
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-emerald-500 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
-                            Auto-Generated
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      ) : (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode={field.type === 'number-only' || field.name === 'whatsapp' ? 'numeric' : 'text'}
+                            required={field.required}
+                            disabled={field.name === 'kode_referral' && !isEditMode}
+                            maxLength={field.name === 'whatsapp' ? 15 : (field.maxLength || 525)}
+                            value={formData[field.name] !== undefined ? formData[field.name] : ''}
+                            onChange={(e) => handleChange(field, e.target.value)}
+                            placeholder={field.placeholder || `Masukkan ${field.label}`}
+                            className={`w-full h-10 px-3.5 rounded-xl border text-xs outline-none transition ${
+                              field.name === 'kode_referral' && !isEditMode ? 'bg-slate-100 dark:bg-[#16171d]/50 text-slate-400 cursor-not-allowed font-mono tracking-wider' : ''
+                            } ${
+                              isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-2xs'
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-[#2e303a]">
-            <Button 
-              type="button" 
+          {/* FOOTER TOMBOL */}
+          <div className="p-5 px-6 border-t border-slate-100 dark:border-[#2e303a] flex items-center justify-end gap-3 bg-white dark:bg-[#1f2028]">
+            <Button
+              type="button"
+              variant="destructive"
               onClick={onClose}
-              className="bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+              className="rounded-full h-10 px-6 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white cursor-pointer shadow-sm transition"
             >
               Batal
             </Button>
-            <Button 
-              type="submit" 
+            
+            <Button
+              type="submit"
               disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+              className="rounded-full h-10 px-7 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5"
             >
-              {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
+              <Save className="w-4 h-4" />
+              <span>{isSubmitting ? 'Menyimpan...' : 'Simpan'}</span>
             </Button>
           </div>
         </form>

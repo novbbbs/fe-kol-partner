@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BarChart3, Megaphone, ChevronDown, FolderKanban } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import { 
@@ -23,9 +23,29 @@ export default function Sidebar({
   onCloseMobile 
 }: SidebarProps) {
   const [isMasterOpen, setIsMasterOpen] = useState(true);
+  const [showPopup, setShowPopup] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeTab === 'kol' || activeTab === 'campaign') {
+      setIsMasterOpen(true);
+    }
+  }, [activeTab]);
+
+  // Menutup popup saat klik di luar area
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
+        setShowPopup(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleMenuClick = (tab: 'dashboard' | 'kol' | 'campaign') => {
     setActiveTab(tab);
+    setShowPopup(false);
     if (window.innerWidth < 768 && onCloseMobile) {
       onCloseMobile();
     }
@@ -47,7 +67,7 @@ export default function Sidebar({
       } ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a]' : 'bg-white border-slate-200'
       }`}>
-        {/* Logo Saloka - Dipanggil langsung dari folder public */}
+        {/* Logo Saloka */}
         <div className="p-4 flex items-center justify-center border-b border-slate-100 dark:border-[#2e303a] shrink-0">
           <img 
             src="/image/saloka.png" 
@@ -59,7 +79,7 @@ export default function Sidebar({
         </div>
 
         {/* Menu Navigasi Sidebar */}
-        <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-visible relative">
           
           {/* Menu Dashboard */}
           <div className="w-full">
@@ -78,45 +98,33 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* Menu Master Data (Mepet di Pojok Kiri) */}
-          <Collapsible
-            open={isSidebarOpen ? isMasterOpen : false}
-            onOpenChange={(open: boolean) => {
-              if (isSidebarOpen) {
-                setIsMasterOpen(open);
-              } else {
-                handleMenuClick('kol');
-              }
-            }}
-            className="w-full"
-          >
-            <CollapsibleTrigger className="w-full block text-left outline-none border-none p-0 m-0">
-              <div
-                className={`w-full flex items-center justify-between px-4 py-3 font-semibold text-xs transition cursor-pointer ${
-                  activeTab === 'kol' || activeTab === 'campaign'
-                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-l-4 border-amber-500'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#262833]'
-                }`}
-                title="Master Data"
-              >
-                <div className="flex items-center gap-3">
-                  <FolderKanban className="w-4 h-4 shrink-0" />
-                  {isSidebarOpen && <span className="truncate text-left">Master Data</span>}
-                </div>
+          {/* KONDISI 1: SIDEBAR TERBUKA (Expanded) -> Collapsible Normal */}
+          {isSidebarOpen ? (
+            <Collapsible
+              open={isMasterOpen}
+              onOpenChange={setIsMasterOpen}
+              className="w-full"
+            >
+              <CollapsibleTrigger className="w-full block text-left outline-none border-none p-0 m-0 cursor-pointer">
+                <div
+                  className={`w-full flex items-center justify-between px-4 py-3 font-semibold text-xs transition cursor-pointer ${
+                    activeTab === 'kol' || activeTab === 'campaign'
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-l-4 border-amber-500'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#262833]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <FolderKanban className="w-4 h-4 shrink-0" />
+                    <span className="truncate text-left">Master Data</span>
+                  </div>
 
-                {isSidebarOpen && (
                   <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
                     isMasterOpen ? 'rotate-180 text-amber-500' : ''
                   }`} />
-                )}
-              </div>
-            </CollapsibleTrigger>
+                </div>
+              </CollapsibleTrigger>
 
-            {/* Sub Menu */}
-            {isSidebarOpen && (
               <CollapsibleContent className="w-full space-y-1 bg-slate-50/50 dark:bg-[#16171d]/30 py-1 transition-all">
-                
-                {/* Sub Menu KOL */}
                 <button
                   type="button"
                   onClick={() => handleMenuClick('kol')}
@@ -126,11 +134,10 @@ export default function Sidebar({
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#262833]'
                   }`}
                 >
-                  <PiUsers className="w-4 h-4 shrink-0" />
+                  <PiUsers className="w-4 h-4 shrink-0 text-emerald-500" />
                   <span className="truncate text-left">KOL</span>
                 </button>
 
-                {/* Sub Menu Campaign */}
                 <button
                   type="button"
                   onClick={() => handleMenuClick('campaign')}
@@ -140,13 +147,68 @@ export default function Sidebar({
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#262833]'
                   }`}
                 >
-                  <Megaphone className="w-3.5 h-3.5 shrink-0" />
+                  <Megaphone className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                   <span className="truncate text-left">Campaign</span>
                 </button>
-
               </CollapsibleContent>
-            )}
-          </Collapsible>
+            </Collapsible>
+          ) : (
+            
+            /* KONDISI 2: SIDEBAR TERTUTUP (Collapsed) -> Tombol Pop-up Aman */
+            <div className="relative" ref={popupRef}>
+              <button
+                type="button"
+                onClick={() => setShowPopup((prev) => !prev)}
+                className={`w-full flex items-center justify-center py-3 px-4 font-semibold text-xs transition cursor-pointer outline-none ${
+                  activeTab === 'kol' || activeTab === 'campaign'
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-l-4 border-amber-500'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#262833]'
+                }`}
+                title="Master Data"
+              >
+                <FolderKanban className="w-4 h-4 shrink-0" />
+              </button>
+
+              {/* Pop-up Menu Melayang */}
+              {showPopup && (
+                <div 
+                  className={`absolute left-20 top-0 w-48 p-2 rounded-2xl shadow-2xl border z-50 space-y-1 ${
+                    isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#2e303a]">
+                    Master Data
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleMenuClick('kol')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition ${
+                      activeTab === 'kol'
+                        ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
+                        : 'hover:bg-slate-100 dark:hover:bg-[#262833]'
+                    }`}
+                  >
+                    <PiUsers className="w-4 h-4 text-emerald-500" />
+                    <span>KOL</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleMenuClick('campaign')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition ${
+                      activeTab === 'campaign'
+                        ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40'
+                        : 'hover:bg-slate-100 dark:hover:bg-[#262833]'
+                    }`}
+                  >
+                    <Megaphone className="w-4 h-4 text-amber-500" />
+                    <span>Campaign</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
         </nav>
       </aside>

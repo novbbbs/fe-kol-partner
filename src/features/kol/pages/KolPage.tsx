@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, FileSpreadsheet, Filter, Search, Edit2, Trash2 } from 'lucide-react';
+import { Plus, FileSpreadsheet, Filter, Search, Edit2, Trash2, Save } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
@@ -25,11 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../components/ui/alert-dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '../../../components/ui/tooltip';
 import KolFilterDropdown from '../components/KolFilterDropdown';
 import { Button } from '../../../components/ui/button';
 import { useKol } from '../hooks/useKol';
@@ -40,7 +35,7 @@ interface KolPageProps {
 }
 
 export default function KolPage({ isDarkMode = false }: KolPageProps) {
-  const { kols, refetch, addKol } = useKol();
+  const { kols, refetch } = useKol();
 
   const [inputValue, setInputValue] = useState('');
   const [debouncedFilter, setDebouncedFilter] = useState('');
@@ -48,26 +43,23 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('Semua');
   
-  // State untuk menampung filter tanggal
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
 
-  // State untuk konfirmasi hapus data dengan AlertDialog Shadcn
+  // State Dialog Konfirmasi
   const [deleteItem, setDeleteItem] = useState<Kol | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
 
-  // State untuk menampung data provinsi dari API Saloka
   const [provinceOptions, setProvinceOptions] = useState<{ label: string; value: string | number }[]>([
     { label: 'Memuat provinsi...', value: '' }
   ]);
 
-  // State untuk menampung data tipe/campaign dari API Master Campaign
   const [campaignOptions, setCampaignOptions] = useState<{ label: string; value: number | string }[]>([
     { label: 'Memuat tipe campaign...', value: '' }
   ]);
 
   const [selectedKolToEdit, setSelectedKolToEdit] = useState<Kol | null>(null);
 
-  // Fetch data provinsi dari API Saloka
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
@@ -96,7 +88,6 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     fetchProvinces();
   }, []);
 
-  // Fetch data campaign untuk opsi 'type' KOL dari Master Campaign API
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
@@ -117,7 +108,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
         setCampaignOptions([
           { label: 'Nataru', value: 'Nataru' },
           { label: 'Dance', value: 'Dance' },
-          { label: 'Jockers', value: 'Jockers' }
+          { label: 'Hollyween', value: 'Hollyween' }
         ]);
       }
     };
@@ -170,25 +161,52 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     return `${result}${numbers}`;
   };
 
-  const handleFormSubmit = async (formData: Record<string, any>) => {
+  const handleInitialFormSubmit = async (formData: Record<string, any>) => {
+    setPendingFormData(formData);
+    setIsModalOpen(false);
+  };
+
+  const handleConfirmSave = async () => {
+    if (!pendingFormData) return;
+
     try {
       const axios = (await import('axios')).default;
       
+      const formatDate = (val: any) => {
+        if (!val) return null;
+        const str = String(val);
+        return str.includes('T') ? str.split('T')[0] : str.slice(0, 10);
+      };
+
+      const rawWhatsapp = String(pendingFormData.whatsapp || '').replace(/\D/g, '');
+
+      const resolvedName = pendingFormData.name || pendingFormData.nama_kol || pendingFormData.nama || '';
+      const resolvedUsername = pendingFormData.username || '';
+      const resolvedProvince = pendingFormData.province_name || pendingFormData.provinsi || '';
+      const resolvedCity = pendingFormData.city_name || pendingFormData.kota_asal || '';
+      const resolvedType = pendingFormData.type || pendingFormData.tipe_kol || '';
+
       const payload = {
-        ...formData,
-        province_id: 1, 
-        province_name: formData.province_name,
-        city_id: 1,
-        city_name: formData.city_name,
+        name: resolvedName,
+        nama_kol: resolvedName,
+        username: resolvedUsername,
+        whatsapp: rawWhatsapp,
+        province_name: resolvedProvince,
+        city_name: resolvedCity,
+        type: resolvedType,
+        campaign_start_date: formatDate(pendingFormData.campaign_start_date),
+        campaign_end_date: formatDate(pendingFormData.campaign_end_date),
         referral_code: selectedKolToEdit ? (selectedKolToEdit.referral_code || selectedKolToEdit.kode_referral) : generateReferralCode(),
         status: 1 
       };
 
-      if (selectedKolToEdit) {
-        await axios.put(`http://127.0.0.1:8000/api/kols/${selectedKolToEdit.id}`, payload);
-        refetch();
-        setIsModalOpen(false);
-        setSelectedKolToEdit(null);
+      const activeEditTarget = selectedKolToEdit;
+
+      if (activeEditTarget) {
+        const targetId = activeEditTarget.id || activeEditTarget.uid;
+        await axios.put(`http://127.0.0.1:8000/api/kols/${targetId}`, payload);
+        if (typeof refetch === 'function') await refetch();
+        
         Swal.fire({
           title: 'Berhasil!',
           text: 'Data KOL berhasil diperbarui.',
@@ -196,10 +214,9 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
           confirmButtonColor: '#10b981'
         });
       } else {
-        await addKol(payload as any);
-        refetch();
-        setIsModalOpen(false);
-        setSelectedKolToEdit(null);
+        await axios.post('http://127.0.0.1:8000/api/kols', payload);
+        if (typeof refetch === 'function') await refetch();
+
         Swal.fire({
           title: 'Berhasil!',
           text: `Data KOL baru berhasil ditambahkan dengan Referral: ${payload.referral_code}`,
@@ -209,22 +226,60 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
       }
     } catch (error: any) {
       console.error('Gagal menyimpan data:', error.response?.data || error);
-      const errorMsg = error.response?.data?.message || error.message || 'Terjadi kesalahan saat menyimpan data KOL.';
+      
+      const errorData = error.response?.data;
+      let errorMsg = 'Terjadi kesalahan saat menyimpan data KOL.';
+      
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        } else if (errorData.message) {
+          errorMsg = errorData.message;
+        } else if (errorData.errors) {
+          errorMsg = Object.values(errorData.errors).flat().join('\n');
+        }
+      }
+
       Swal.fire('Gagal!', errorMsg, 'error');
+    } finally {
+      setSelectedKolToEdit(null);
+      setPendingFormData(null);
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteItem) return;
+
+    const targetId = deleteItem.id || deleteItem.uid;
+
+    if (!targetId) {
+      Swal.fire('Gagal!', 'ID data KOL tidak valid.', 'error');
+      return;
+    }
+
     try {
       const axios = (await import('axios')).default;
-      await axios.delete(`http://127.0.0.1:8000/api/kols/${deleteItem.id}`);
-      refetch();
-      setDeleteItem(null);
-      Swal.fire('Terhapus!', 'Data KOL berhasil dihapus dari database.', 'success');
+      const response = await axios.delete(`http://127.0.0.1:8000/api/kols/${targetId}`);
+      
+      if (response.status === 200 || response.data?.success) {
+        if (typeof refetch === 'function') {
+          await refetch();
+        }
+        
+        setDeleteItem(null);
+        
+        Swal.fire({
+          title: 'Terhapus!',
+          text: 'Data KOL berhasil dihapus dari database.',
+          icon: 'success',
+          confirmButtonColor: '#10b981'
+        });
+      } else {
+        throw new Error(response.data?.message || 'Gagal menghapus data.');
+      }
     } catch (error: any) {
       console.error('Gagal menghapus data:', error);
-      const errorMsg = error.response?.data?.message || 'Terjadi kesalahan saat menghapus data.';
+      const errorMsg = error.response?.data?.message || error.message || 'Terjadi kesalahan saat menghapus data.';
       setDeleteItem(null);
       Swal.fire('Gagal!', errorMsg, 'error');
     }
@@ -253,9 +308,15 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
 
   const kolFields = useMemo(() => {
     const baseFields = [
-      { name: 'name', label: 'Name', placeholder: '', required: true },
-      { name: 'username', label: 'Username', placeholder: '', required: true },
-      { name: 'whatsapp', label: 'Whatsapp', placeholder: '', required: true },
+      { name: 'name', label: 'Name', placeholder: 'Masukkan Name', required: true },
+      { name: 'username', label: 'Username', placeholder: 'Masukkan Username', required: true },
+      { 
+        name: 'whatsapp', 
+        label: 'Whatsapp', 
+        placeholder: 'Masukkan Whatsapp', 
+        type: 'number-only' as const,
+        required: true 
+      },
       { 
         name: 'province_name', 
         label: 'Provinsi', 
@@ -267,6 +328,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
         name: 'city_name', 
         label: 'Kota Asal', 
         type: 'text' as const,
+        placeholder: 'Masukkan Kota Asal',
         required: true 
       },
       { 
@@ -289,7 +351,6 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     return baseFields;
   }, [selectedKolToEdit, provinceOptions, campaignOptions]);
 
-  // Definisi Kolom Desktop
   const columns = [
     { 
       accessorKey: 'id', 
@@ -403,44 +464,30 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
       header: () => <div className="text-center">ACTION</div>,
       cell: ({ row }: any) => (
         <div className="flex items-center justify-center gap-1">
-          {/* Tooltip Edit - Tanpa asChild */}
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setSelectedKolToEdit(row.original);
-                  setIsModalOpen(true);
-                }}
-                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-[11px] py-1 px-2.5">
-              <p>Edit Data KOL</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Edit Data KOL"
+            onClick={() => {
+              setSelectedKolToEdit(row.original);
+              setIsModalOpen(true);
+            }}
+            className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </Button>
 
-          {/* Tooltip Hapus - Tanpa asChild */}
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setDeleteItem(row.original)}
-                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-[11px] py-1 px-2.5 bg-rose-600 text-white border-rose-600">
-              <p>Hapus Data KOL</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Hapus Data KOL"
+            onClick={() => setDeleteItem(row.original)}
+            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
       )
     }
@@ -451,16 +498,25 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
       <div className={`w-full rounded-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
+        
+        {/* HEADER PANEL */}
         <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2e303a]">
-          <div>
-            <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-              <PiUsers className="w-5 h-5 text-emerald-500" />
-              Master KOL 
-            </h2>
+          
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
+              <PiUsers className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                Master KOL
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">Total: {kols.length} KOL terdaftar</p>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative w-full sm:w-80">
+            
+            <div className="relative w-full sm:w-72">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                 <Search className="w-3.5 h-3.5" />
               </span>
@@ -468,26 +524,20 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Cari data disini..."
                 className={`w-full py-2.5 pl-10 pr-12 text-xs rounded-full border outline-none transition ${
-                  isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-xs'
+                  isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-2xs'
                 }`}
               />
 
-              {/* Tooltip Filter - Tanpa asChild */}
-              <Tooltip>
-                <TooltipTrigger>
-                  <button
-                    type="button"
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-emerald-600 transition"
-                  >
-                    <Filter className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-[11px] py-1 px-2.5">
-                  <p>Filter Lanjutan</p>
-                </TooltipContent>
-              </Tooltip>
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                title="Filter Lanjutan"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-emerald-600 transition"
+              >
+                <Filter className="w-3.5 h-3.5" />
+              </button>
 
               <KolFilterDropdown
                 isOpen={isFilterOpen}
@@ -501,137 +551,139 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
               />
             </div>
 
-            {/* Tombol Export */}
             <Button
               type="button"
               onClick={handleExportExcel}
-              className="hidden md:flex shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+              className="hidden md:flex shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
               <span>Export</span>
             </Button>
 
-            {/* Tombol Tambah */}
             <Button
               type="button"
               onClick={() => {
                 setSelectedKolToEdit(null);
                 setIsModalOpen(true);
               }}
-              className="hidden md:flex shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="hidden md:flex shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4 mr-1.5" />
               <span>Tambah</span>
             </Button>
+
           </div>
         </div>
 
-        {/* ReusableTable dengan Menggunakan Komponen Card Shadcn UI Lengkap */}
-        <ReusableTable
-          data={filteredData}
-          columns={columns}
-          isDarkMode={isDarkMode}
-          renderCardMobile={(item, absoluteIndex) => {
-            const endDate = item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '';
-            const today = new Date().toISOString().split('T')[0];
-            const isExpired = endDate && today > endDate;
-            const isActive = !isExpired && (item.status === 'ACTIVE' || item.status === 1 || item.status === '1' || String(item.status).toLowerCase() === 'aktif');
-            const provName = (String(item.province_name || item.provinsi) === '13') ? 'JAWA TENGAH' : (item.province_name || item.provinsi || '-');
+        {/* Tabel Data */}
+        <div className="w-full [&_div]:border-none [&_table]:mb-0">
+          <ReusableTable
+            data={filteredData}
+            columns={columns}
+            isDarkMode={isDarkMode}
+            renderCardMobile={(item, absoluteIndex) => {
+              const endDate = item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '';
+              const today = new Date().toISOString().split('T')[0];
+              const isExpired = endDate && today > endDate;
+              const isActive = !isExpired && (item.status === 'ACTIVE' || item.status === 1 || item.status === '1' || String(item.status).toLowerCase() === 'aktif');
+              const provName = (String(item.province_name || item.provinsi) === '13') ? 'JAWA TENGAH' : (item.province_name || item.provinsi || '-');
 
-            return (
-              <Card key={item.id || absoluteIndex} className={isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white shadow-md' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}>
-                <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 border-b border-slate-100 dark:border-[#2e303a]">
-                  <div>
-                    <CardTitle className="text-xs font-bold text-slate-800 dark:text-white">
-                      ID: #{absoluteIndex}
-                    </CardTitle>
-                    <CardDescription className="text-[11px] text-slate-400 mt-0.5">
-                      Referral: <span className="font-mono font-bold text-emerald-600">{item.referral_code || item.kode_referral || '-'}</span>
-                    </CardDescription>
-                  </div>
-                  <Badge 
-                    variant={isActive ? 'default' : 'destructive'}
-                    className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
-                      isActive 
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
-                        : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
-                    }`}
-                  >
-                    {isActive ? 'Active' : 'Non Active'}
-                  </Badge>
-                </CardHeader>
-                
-                <CardContent className="p-4 space-y-2 text-xs">
-                  <div>
-                    <p className="font-bold text-sm text-slate-800 dark:text-white">{item.name || item.nama_kol}</p>
-                    <p className="text-slate-400 text-[11px]">@{item.username || '-'}</p>
-                  </div>
+              return (
+                <Card key={item.id || item.uid || absoluteIndex} className={isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white shadow-md' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}>
+                  <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 border-b border-slate-100 dark:border-[#2e303a]">
+                    <div>
+                      <CardTitle className="text-xs font-bold text-slate-800 dark:text-white">
+                        ID: #{absoluteIndex}
+                      </CardTitle>
+                      <CardDescription className="text-[11px] text-slate-400 mt-0.5">
+                        Referral: <span className="font-mono font-bold text-emerald-600">{item.referral_code || item.kode_referral || '-'}</span>
+                      </CardDescription>
+                    </div>
+                    <Badge 
+                      variant={isActive ? 'default' : 'destructive'}
+                      className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
+                        isActive 
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
+                          : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
+                      }`}
+                    >
+                      {isActive ? 'Active' : 'Non Active'}
+                    </Badge>
+                  </CardHeader>
+                  
+                  <CardContent className="p-4 space-y-2 text-xs">
+                    <div>
+                      <p className="font-bold text-sm text-slate-800 dark:text-white">{item.name || item.nama_kol}</p>
+                      <p className="text-slate-400 text-[11px]">@{item.username || '-'}</p>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 text-[11px]">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Whatsapp</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">{item.whatsapp || '-'}</span>
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 text-[11px]">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Whatsapp</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{item.whatsapp || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Type</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{item.type || item.tipe_kol || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Kota Asal</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{item.city_name || item.kota_asal || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Provinsi</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{provName}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Type</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">{item.type || item.tipe_kol || '-'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Kota Asal</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">{item.city_name || item.kota_asal || '-'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Provinsi</span>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">{provName}</span>
-                    </div>
-                  </div>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Start Date</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1f2028] px-2 py-0.5 rounded border border-slate-200 dark:border-[#2e303a] inline-block mt-0.5">
-                        {item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-'}
-                      </span>
+                    <div className="pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Start Date</span>
+                        <span className="font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1f2028] px-2 py-0.5 rounded border border-slate-200 dark:border-[#2e303a] inline-block mt-0.5">
+                          {item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">End Date</span>
+                        <span className="font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1f2028] px-2 py-0.5 rounded border border-slate-200 dark:border-[#2e303a] inline-block mt-0.5">
+                          {item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">End Date</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1f2028] px-2 py-0.5 rounded border border-slate-200 dark:border-[#2e303a] inline-block mt-0.5">
-                        {item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-'}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
+                  </CardContent>
 
-                <CardFooter className="p-3 bg-slate-50/50 dark:bg-[#1f2028]/50 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2e303a]">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedKolToEdit(item);
-                      setIsModalOpen(true);
-                    }}
-                    className="h-8 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900 dark:hover:bg-amber-950/30"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setDeleteItem(item)}
-                    className="h-8 text-xs"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    Hapus
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          }}
-        />
+                  <CardFooter className="p-3 bg-slate-50/50 dark:bg-[#1f2028]/50 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2e303a]">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedKolToEdit(item);
+                        setIsModalOpen(true);
+                      }}
+                      className="h-8 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900 dark:hover:bg-amber-950/30"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setDeleteItem(item)}
+                      className="h-8 text-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Hapus
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            }}
+          />
+        </div>
+
       </div>
 
-      {/* FLOATING ACTION BUTTON (FAB) - Mobile */}
+      {/* Floating Action Button (Mobile) */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2.5 md:hidden">
         <button
           type="button"
@@ -662,7 +714,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
           setIsModalOpen(false);
           setSelectedKolToEdit(null);
         }}
-        onSubmitSuccess={handleFormSubmit}
+        onSubmitSuccess={handleInitialFormSubmit}
         initialData={selectedKolToEdit}
         titleCreate="Tambah KOL Baru"
         titleEdit="Edit Data KOL"
@@ -670,31 +722,72 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
         isDarkMode={isDarkMode}
       />
 
-      {/* Modal Konfirmasi Hapus dengan Shadcn AlertDialog */}
-      <AlertDialog open={Boolean(deleteItem)} onOpenChange={() => setDeleteItem(null)}>
-        <AlertDialogContent className={`rounded-2xl border ${
+      {/* Dialog Konfirmasi Simpan Data KOL */}
+      <AlertDialog open={Boolean(pendingFormData)} onOpenChange={() => setPendingFormData(null)}>
+        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
           isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
         }`}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold">
-              Apakah Anda yakin ingin menghapus data ini?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-400">
-              Tindakan ini tidak dapat dibatalkan. Data KOL <span className="font-semibold text-slate-600 dark:text-slate-200">{deleteItem?.name || deleteItem?.nama_kol}</span> akan dihapus secara permanen dari sistem.
-            </AlertDialogDescription>
+          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
+            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50">
+              <Save className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <AlertDialogTitle className="text-base font-bold tracking-tight">
+                {selectedKolToEdit ? 'Konfirmasi Perubahan?' : 'Simpan KOL Baru?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin {selectedKolToEdit ? 'memperbarui' : 'menambahkan'} data KOL <span className="font-semibold text-emerald-600">{pendingFormData?.name || pendingFormData?.nama_kol || pendingFormData?.nama}</span>?
+              </AlertDialogDescription>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+            <AlertDialogCancel 
+              onClick={() => { setPendingFormData(null); setSelectedKolToEdit(null); }} 
+              className="w-full sm:w-1/2 rounded-xl h-10 text-xs font-semibold"
+            >
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmSave} 
+              className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-xs font-semibold shadow-lg"
+            >
+              Ya, Simpan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal Konfirmasi Hapus */}
+      <AlertDialog open={Boolean(deleteItem)} onOpenChange={() => setDeleteItem(null)}>
+        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
+          isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
+        }`}>
+          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
+            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 border border-rose-100 dark:border-rose-900/50">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <AlertDialogTitle className="text-base font-bold tracking-tight">
+                Hapus Data KOL Ini?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Tindakan ini bersifat permanen. Data KOL <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.name || deleteItem?.nama_kol}</span> akan dihapus dari sistem.
+              </AlertDialogDescription>
+            </div>
           </AlertDialogHeader>
 
-          <AlertDialogFooter className="pt-2">
+          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
             <AlertDialogCancel 
               onClick={() => setDeleteItem(null)}
-              className="rounded-xl h-9 text-xs border-slate-200 dark:border-[#2e303a]"
+              className="w-full sm:w-1/2 rounded-xl h-10 text-xs font-semibold border-slate-200 dark:border-[#2e303a] hover:bg-slate-100 dark:hover:bg-[#16171d]"
             >
               Batal
             </AlertDialogCancel>
             
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-9 text-xs font-semibold cursor-pointer transition"
+              className="w-full sm:w-1/2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-10 text-xs font-semibold shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
             >
               Ya, Hapus
             </AlertDialogAction>

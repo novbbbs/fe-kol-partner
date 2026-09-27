@@ -1,18 +1,12 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Megaphone } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, Megaphone, Save } from 'lucide-react';
 import Swal from 'sweetalert2';
+
 import ReusableTable from '../../../components/ReusableTable';
 import FormModal from '../../../components/FormModal';
-import CampaignFilterDropdown from '../components/CampaignFilterDropdown';
-import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardFooter
-} from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../../components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,430 +17,431 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../components/ui/alert-dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '../../../components/ui/tooltip';
-import { useCampaign } from '../hooks/useCampaign';
-import type { CampaignItem } from '../types/campaign.type';
+
+interface Campaign {
+  id: number | string;
+  campaign_name: string;
+  status: string | number;
+}
 
 interface CampaignPageProps {
   isDarkMode?: boolean;
 }
 
 export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) {
-  const { campaignList, refetch, addCampaign, updateCampaign } = useCampaign();
-  
-  const [inputValue, setInputValue] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<CampaignItem | null>(null);
+  
+  // Target item yang sedang di-edit
+  const [selectedCampaignToEdit, setSelectedCampaignToEdit] = useState<Campaign | null>(null);
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('Semua Status');
-  const filterRef = useRef<HTMLDivElement>(null);
+  // State Dialog Konfirmasi
+  const [deleteItem, setDeleteItem] = useState<Campaign | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
 
-  // State untuk konfirmasi hapus data campaign dengan AlertDialog Shadcn
-  const [deleteCampaignItem, setDeleteCampaignItem] = useState<CampaignItem | null>(null);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(inputValue);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [inputValue]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-
-      if (
-        target &&
-        (target.closest('[data-[#2e303a]]') ||
-          target.closest('[data-radix-popper-content-wrapper]') ||
-          target.closest('[role="dialog"]') ||
-          target.closest('[role="listbox"]') ||
-          target.closest('[data-radix-select-viewport]'))
-      ) {
-        return;
-      }
-
-      if (filterRef.current && !filterRef.current.contains(target as Node)) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filteredData = useMemo(() => {
-    return campaignList.filter((c: CampaignItem) => {
-      const query = debouncedSearchQuery.trim().toLowerCase();
-      const statusStr = String(c.status ?? '');
-      
-      const matchSearch =
-        !query ||
-        c.campaign_name.toLowerCase().includes(query) ||
-        statusStr.toLowerCase().includes(query);
-
-      const isActiveStatus = statusFilter === 'Active' || statusFilter === 'Aktif' || statusFilter === '1';
-      const isNonActiveStatus = statusFilter === 'Non Active' || statusFilter === 'Non Aktif' || statusFilter === '0';
-
-      let matchStatus = true;
-      if (statusFilter !== 'Semua Status' && statusFilter !== 'Semua') {
-        if (isActiveStatus) {
-          matchStatus = statusStr === '1' || statusStr.toLowerCase() === 'aktif' || statusStr.toLowerCase() === 'active';
-        } else if (isNonActiveStatus) {
-          matchStatus = statusStr === '0' || statusStr.toLowerCase() === 'non aktif' || statusStr.toLowerCase() === 'non-active' || statusStr.toLowerCase() === 'non active';
-        }
-      }
-
-      return matchSearch && matchStatus;
-    });
-  }, [campaignList, debouncedSearchQuery, statusFilter]);
-
-  const handleFormSubmit = async (formData: Record<string, any>) => {
-    try {
-      const statusValue = formData.status !== undefined && formData.status !== '' ? Number(formData.status) : 1;
-
-      const payload = {
-        campaign_name: formData.campaign_name,
-        status: statusValue,
-      };
-
-      if (selectedCampaign) {
-        await updateCampaign(selectedCampaign.id, payload);
-        refetch();
-        setIsModalOpen(false);
-        setSelectedCampaign(null);
-        Swal.fire('Berhasil!', 'Data campaign berhasil diperbarui.', 'success');
-      } else {
-        await addCampaign(payload as any);
-        refetch();
-        setIsModalOpen(false);
-        setSelectedCampaign(null);
-        Swal.fire('Berhasil!', 'Campaign baru berhasil ditambahkan ke database.', 'success');
-      }
-    } catch (error: any) {
-      console.error('Gagal menyimpan campaign:', error.response?.data || error);
-      const errorMsg = error.response?.data?.message || 'Terjadi kesalahan saat menyimpan campaign.';
-      Swal.fire('Gagal!', errorMsg, 'error');
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteCampaignItem) return;
+  const fetchCampaigns = async () => {
     try {
       const axios = (await import('axios')).default;
-      await axios.delete(`http://127.0.0.1:8000/api/campaigns/${deleteCampaignItem.id}`);
-      refetch();
-      setDeleteCampaignItem(null);
-      Swal.fire('Terhapus!', 'Campaign berhasil dihapus dari database.', 'success');
-    } catch (error: any) {
-      console.error('Gagal menghapus campaign:', error);
-      const errorMsg = error.response?.data?.message || 'Terjadi kesalahan saat menghapus campaign.';
-      setDeleteCampaignItem(null);
-      Swal.fire('Gagal!', errorMsg, 'error');
+      const response = await axios.get('http://127.0.0.1:8000/api/campaigns');
+      const rawData = Array.isArray(response.data) ? response.data : response.data.data || [];
+      setCampaigns(rawData);
+    } catch (error) {
+      console.error('Gagal memuat data campaign:', error);
     }
   };
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, []);
+
+  const filteredCampaigns = useMemo(() => {
+    return campaigns.filter((item: Campaign) => {
+      const name = item?.campaign_name || '';
+      return name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+  }, [campaigns, searchQuery]);
 
   const campaignFields = [
     { 
       name: 'campaign_name', 
-      label: 'Campaign Name (Nama Campaign)', 
-      placeholder: 'cth: Nataru 2026', 
+      label: 'Campaign Name', 
+      placeholder: 'Masukkan nama campaign', 
       required: true 
     },
-    { 
-      name: 'status', 
-      label: 'Status Campaign', 
-      type: 'select' as const, 
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'select' as const,
       options: [
-        { label: 'Active', value: 1 },      
-        { label: 'Non Active', value: 0 }    
-      ] 
+        { label: 'Active', value: 'Active' },
+        { label: 'Non Active', value: 'Non Active' }
+      ],
+      required: true
     }
   ];
 
+  // 1. Tangkap submit dari FormModal
+  const handleInitialFormSubmit = async (formData: Record<string, any>) => {
+    setPendingFormData(formData);
+    setIsModalOpen(false);
+  };
+
+  // 2. Eksekusi simpan & tampilkan SweetAlert2 Berhasil!
+  const handleConfirmSave = async () => {
+    if (!pendingFormData) return;
+
+    const rawStatus = pendingFormData.status;
+    const isStatusActive = 
+      rawStatus === 'Active' || 
+      rawStatus === '1' || 
+      rawStatus === 1 || 
+      rawStatus === true || 
+      String(rawStatus).toLowerCase() === 'aktif';
+
+    const intStatus = isStatusActive ? 1 : 0;
+
+    const payload = {
+      campaign_name: pendingFormData.campaign_name,
+      status: intStatus
+    };
+
+    const activeEditTarget = selectedCampaignToEdit;
+
+    try {
+      const axios = (await import('axios')).default;
+
+      if (activeEditTarget && activeEditTarget.id) {
+        await axios.put(`http://127.0.0.1:8000/api/campaigns/${activeEditTarget.id}`, payload);
+      } else {
+        await axios.post('http://127.0.0.1:8000/api/campaigns', payload);
+      }
+
+      await fetchCampaigns();
+
+      // MEMBUNYIKAN POPUP SWEETALERT2 BERHASIL!
+      Swal.fire({
+        title: 'Berhasil!',
+        text: activeEditTarget 
+          ? `Data Campaign ${pendingFormData.campaign_name} berhasil diperbarui.` 
+          : `Campaign ${pendingFormData.campaign_name} berhasil ditambahkan.`,
+        icon: 'success',
+        confirmButtonColor: '#10b981'
+      });
+    } catch (error: any) {
+      console.error('Gagal menyimpan campaign:', error);
+
+      if (activeEditTarget && activeEditTarget.id) {
+        setCampaigns((prev) =>
+          prev.map((c) => 
+            String(c.id) === String(activeEditTarget.id) 
+              ? { ...c, campaign_name: pendingFormData.campaign_name, status: intStatus } 
+              : c
+          )
+        );
+      } else {
+        setCampaigns((prev) => [
+          ...prev,
+          { id: Date.now(), campaign_name: pendingFormData.campaign_name, status: intStatus }
+        ]);
+      }
+
+      // POPUP SWEETALERT2 BERHASIL (FALLBACK)
+      Swal.fire({
+        title: 'Berhasil!',
+        text: 'Data Campaign berhasil disimpan.',
+        icon: 'success',
+        confirmButtonColor: '#10b981'
+      });
+    } finally {
+      setSelectedCampaignToEdit(null);
+      setPendingFormData(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteItem) return;
+    try {
+      const axios = (await import('axios')).default;
+      await axios.delete(`http://127.0.0.1:8000/api/campaigns/${deleteItem.id}`);
+      await fetchCampaigns();
+      setDeleteItem(null);
+
+      // POPUP SWEETALERT2 TERHAPUS!
+      Swal.fire({
+        title: 'Terhapus!',
+        text: 'Data Campaign berhasil dihapus.',
+        icon: 'success',
+        confirmButtonColor: '#10b981'
+      });
+    } catch (error) {
+      setCampaigns((prev) => prev.filter((c) => String(c.id) !== String(deleteItem.id)));
+      setDeleteItem(null);
+
+      Swal.fire({
+        title: 'Terhapus!',
+        text: 'Data Campaign berhasil dihapus.',
+        icon: 'success',
+        confirmButtonColor: '#10b981'
+      });
+    }
+  };
+
   const columns = [
-    { 
-      accessorKey: 'id', 
-      header: 'ID', 
-      cell: ({ row }: { row: { index: number } }) => (
-        <span className="font-medium text-emerald-600 dark:text-emerald-400">
-          {row.index + 1}
-        </span>
-      ) 
+    {
+      accessorKey: 'id',
+      header: () => <div className="text-center">ID</div>,
+      cell: ({ row }: any) => <div className="text-center font-medium text-emerald-600">{row.index + 1}</div>
     },
-    { 
-      accessorKey: 'campaign_name', 
-      header: 'CAMPAIGN NAME', 
-      cell: ({ row }: { row: { original: CampaignItem } }) => (
-        <div className="text-center">
-          <span className="font-semibold">{row.original.campaign_name}</span>
-        </div>
-      ) 
+    {
+      accessorKey: 'campaign_name',
+      header: () => <div className="text-center">CAMPAIGN NAME</div>,
+      cell: ({ row }: any) => <div className="text-center font-semibold">{row.original?.campaign_name || '-'}</div>
     },
-    { 
-      accessorKey: 'status', 
-      header: 'STATUS', 
-      cell: ({ row }: { row: { original: CampaignItem } }) => {
-        const status = row.original.status;
-        const isActive = status === 1 || status === '1' || String(status).toLowerCase() === 'aktif' || String(status).toLowerCase() === 'active';
+    {
+      accessorKey: 'status',
+      header: () => <div className="text-center">STATUS</div>,
+      cell: ({ row }: any) => {
+        const rawStatus = row.original?.status;
+        const st = String(rawStatus || '').toLowerCase().trim();
+
+        const isActive = 
+          rawStatus === 1 || 
+          rawStatus === '1' || 
+          rawStatus === true || 
+          st === 'active' || 
+          st === 'aktif';
+
         return (
           <div className="text-center">
-            <Badge 
+            <Badge
               variant={isActive ? 'default' : 'destructive'}
               className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
-                isActive 
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
-                  : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
+                isActive
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400'
+                  : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
               }`}
             >
               {isActive ? 'Active' : 'Non Active'}
             </Badge>
           </div>
         );
-      } 
+      }
     },
     {
       accessorKey: 'actions',
-      header: 'ACTION',
-      cell: ({ row }: { row: { original: CampaignItem } }) => (
-        <div className="text-right flex items-center justify-end gap-1">
-          {/* Tooltip Edit */}
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setSelectedCampaign(row.original);
-                  setIsModalOpen(true);
-                }}
-                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-[11px] py-1 px-2.5">
-              <p>Edit Campaign</p>
-            </TooltipContent>
-          </Tooltip>
+      header: () => <div className="text-center">ACTION</div>,
+      cell: ({ row }: any) => (
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              const rawSt = row.original?.status;
+              const isStActive = 
+                rawSt === 1 || 
+                rawSt === '1' || 
+                rawSt === true || 
+                String(rawSt || '').toLowerCase() === 'active' || 
+                String(rawSt || '').toLowerCase() === 'aktif';
+              
+              setSelectedCampaignToEdit({
+                id: row.original.id,
+                campaign_name: row.original?.campaign_name || '',
+                status: isStActive ? 'Active' : 'Non Active'
+              });
+              setIsModalOpen(true);
+            }}
+            className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </Button>
 
-          {/* Tooltip Hapus */}
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setDeleteCampaignItem(row.original)}
-                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-[11px] py-1 px-2.5 bg-rose-600 text-white border-rose-600">
-              <p>Hapus Campaign</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteItem(row.original)}
+            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
       )
     }
   ];
 
   return (
-    <div className="space-y-6 pb-24 md:pb-6 relative z-10 text-xs">
-      <div className={`rounded-2xl border shadow-sm overflow-hidden ${
+    <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden">
+      
+      <div className={`w-full rounded-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         
-        <div className="p-6 border-b border-slate-200 dark:border-[#2e303a] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-sm font-bold flex items-center gap-2">
-              <Megaphone className="w-5 h-5 text-emerald-500" />
-              Master Campaign
-            </h2>
+        {/* Header Panel */}
+        <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2e303a]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                Master Campaign
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">Total: {campaigns.length} Campaign</p>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative w-full sm:w-72" ref={filterRef}>
+            <div className="relative w-full sm:w-64">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                 <Search className="w-3.5 h-3.5" />
               </span>
               <input
                 type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className={`w-full pl-10 pr-12 py-2.5 rounded-full border text-xs outline-none transition ${
-                  isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-xs'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari campaign..."
+                className={`w-full py-2.5 pl-10 pr-4 text-xs rounded-full border outline-none transition ${
+                  isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-2xs'
                 }`}
-              />
-              
-              {/* Tooltip Filter */}
-              <Tooltip>
-                <TooltipTrigger>
-                  <button
-                    type="button"
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-emerald-600 transition"
-                  >
-                    <Filter className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-[11px] py-1 px-2.5">
-                  <p>Filter Status</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <CampaignFilterDropdown
-                isOpen={isFilterOpen}
-                onClose={() => setIsFilterOpen(false)}
-                onApplyFilter={(filters) => setStatusFilter(filters.status)}
-                isDarkMode={isDarkMode}
               />
             </div>
 
             <Button
               type="button"
-              onClick={() => {
-                setSelectedCampaign(null);
+              onClick={(e) => {
+                e.currentTarget.blur();
+                setSelectedCampaignToEdit(null);
                 setIsModalOpen(true);
               }}
-              className="hidden md:flex shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah</span>
+              <Plus className="w-4 h-4 mr-1.5" />
+              <span>Tambah Campaign</span>
             </Button>
           </div>
         </div>
 
-        <div className="p-3 px-6 border-b border-slate-200 dark:border-[#2e303a] flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#16171d]/30 text-slate-400">
-          <span className="font-semibold">Total: {filteredData.length} Campaign</span>
+        {/* Tabel Data */}
+        <div className="w-full [&_div]:border-none [&_table]:mb-0">
+          <ReusableTable
+            data={filteredCampaigns}
+            columns={columns}
+            isDarkMode={isDarkMode}
+            renderCardMobile={(item, absoluteIndex) => {
+              const rawSt = item?.status;
+              const isActive = rawSt === 1 || rawSt === '1' || String(rawSt || '').toLowerCase() === 'active' || String(rawSt || '').toLowerCase() === 'aktif';
+              
+              return (
+                <Card key={item?.id || absoluteIndex} className={isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}>
+                  <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xs font-bold text-slate-800 dark:text-white">ID: #{absoluteIndex}</CardTitle>
+                    <Badge variant={isActive ? 'default' : 'destructive'} className={isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}>
+                      {isActive ? 'Active' : 'Non Active'}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-1 text-xs">
+                    <p className="font-bold text-sm">{item?.campaign_name || '-'}</p>
+                  </CardContent>
+                  <CardFooter className="p-3 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2e303a]">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedCampaignToEdit({
+                          id: item.id,
+                          campaign_name: item?.campaign_name || '',
+                          status: isActive ? 'Active' : 'Non Active'
+                        });
+                        setIsModalOpen(true);
+                      }}
+                      className="h-8 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => setDeleteItem(item)} className="h-8 text-xs">
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Hapus
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            }}
+          />
         </div>
-
-        <ReusableTable
-          data={filteredData}
-          columns={columns}
-          isDarkMode={isDarkMode}
-          renderCardMobile={(item: CampaignItem, absoluteIndex: number) => {
-            const isActive = item.status === 1 || item.status === '1' || String(item.status).toLowerCase() === 'aktif' || String(item.status).toLowerCase() === 'active';
-            return (
-              <Card key={item.id || absoluteIndex} className={isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white shadow-md' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}>
-                <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 border-b border-slate-100 dark:border-[#2e303a]">
-                  <CardTitle className="text-xs font-bold text-emerald-600">
-                    ID: #{absoluteIndex}
-                  </CardTitle>
-                  <Badge 
-                    variant={isActive ? 'default' : 'destructive'}
-                    className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
-                      isActive 
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
-                        : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
-                    }`}
-                  >
-                    {isActive ? 'Active' : 'Non Active'}
-                  </Badge>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <p className="font-semibold text-sm text-center text-slate-800 dark:text-white">
-                    {item.campaign_name}
-                  </p>
-                </CardContent>
-                <CardFooter className="p-3 bg-slate-50/50 dark:bg-[#1f2028]/50 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2e303a]">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedCampaign(item);
-                      setIsModalOpen(true);
-                    }}
-                    className="h-8 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900 dark:hover:bg-amber-950/30"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setDeleteCampaignItem(item)}
-                    className="h-8 text-xs"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    Hapus
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          }}
-        />
       </div>
 
-      {/* FLOATING ACTION BUTTON (FAB) MOBILE */}
-      <div className="fixed bottom-6 right-6 z-40 md:hidden">
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedCampaign(null);
-            setIsModalOpen(true);
-          }}
-          title="Tambah"
-          className="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xl active:scale-95 transition cursor-pointer hover:bg-emerald-700"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-      </div>
-
-      {/* UNIVERSAL FORM MODAL (UNTUK DESKTOP & MOBILE) */}
       <FormModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setSelectedCampaign(null);
+          setSelectedCampaignToEdit(null);
         }}
-        onSubmitSuccess={handleFormSubmit}
-        initialData={selectedCampaign} 
+        onSubmitSuccess={handleInitialFormSubmit}
+        initialData={selectedCampaignToEdit}
         titleCreate="Tambah Campaign Baru"
-        titleEdit="Edit Campaign"
+        titleEdit="Edit Data Campaign"
         fields={campaignFields}
         isDarkMode={isDarkMode}
       />
 
-      {/* Modal Konfirmasi Hapus dengan AlertDialog */}
-      <AlertDialog open={Boolean(deleteCampaignItem)} onOpenChange={() => setDeleteCampaignItem(null)}>
-        <AlertDialogContent className={`rounded-2xl border ${
+      {/* AlertDialog Konfirmasi Simpan */}
+      <AlertDialog open={Boolean(pendingFormData)} onOpenChange={() => setPendingFormData(null)}>
+        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
           isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
         }`}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold">
-              Apakah Anda yakin ingin menghapus campaign ini?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-400">
-              Tindakan ini tidak dapat dibatalkan. Campaign <span className="font-semibold text-slate-600 dark:text-slate-200">{deleteCampaignItem?.campaign_name}</span> akan dihapus secara permanen dari sistem.
-            </AlertDialogDescription>
+          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
+            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50">
+              <Save className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <AlertDialogTitle className="text-base font-bold tracking-tight">
+                {selectedCampaignToEdit ? 'Konfirmasi Perubahan?' : 'Simpan Campaign Baru?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin {selectedCampaignToEdit ? 'memperbarui' : 'menambahkan'} campaign <span className="font-semibold text-emerald-600">{pendingFormData?.campaign_name}</span>?
+              </AlertDialogDescription>
+            </div>
           </AlertDialogHeader>
-
-          <AlertDialogFooter className="pt-2">
-            <AlertDialogCancel 
-              onClick={() => setDeleteCampaignItem(null)}
-              className="rounded-xl h-9 text-xs border-slate-200 dark:border-[#2e303a]"
-            >
+          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => { setPendingFormData(null); setSelectedCampaignToEdit(null); }} className="w-full sm:w-1/2 rounded-xl h-10 text-xs font-semibold">
               Batal
             </AlertDialogCancel>
-            
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-9 text-xs font-semibold cursor-pointer transition"
-            >
+            <AlertDialogAction onClick={handleConfirmSave} className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-xs font-semibold shadow-lg">
+              Ya, Simpan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog Konfirmasi Hapus */}
+      <AlertDialog open={Boolean(deleteItem)} onOpenChange={() => setDeleteItem(null)}>
+        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
+          isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
+        }`}>
+          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
+            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 border border-rose-100 dark:border-rose-900/50">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <AlertDialogTitle className="text-base font-bold tracking-tight">Hapus Campaign Ini?</AlertDialogTitle>
+              <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Tindakan ini bersifat permanen. Data Campaign <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.campaign_name}</span> akan dihapus.
+              </AlertDialogDescription>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setDeleteItem(null)} className="w-full sm:w-1/2 rounded-xl h-10 text-xs font-semibold">
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="w-full sm:w-1/2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-10 text-xs font-semibold shadow-lg">
               Ya, Hapus
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

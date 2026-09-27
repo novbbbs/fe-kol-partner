@@ -27,7 +27,7 @@ export default function ReusableTable({
   isDarkMode = false,
   renderCardMobile,
 }: ReusableTableProps) {
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
@@ -46,6 +46,9 @@ export default function ReusableTable({
   const totalPages = Math.ceil(data.length / pageSize) || 1;
   const paginatedData = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const startItem = data.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endItem = Math.min(currentPage * pageSize, data.length);
+
   const toggleColumn = (key: string) => {
     setColumnVisibility((prev) => ({
       ...prev,
@@ -61,11 +64,7 @@ export default function ReusableTable({
   };
 
   return (
-    <div className="w-full space-y-4 overflow-x-hidden relative">
-      {/* 
-        Style ini menargetkan SEMUA elemen turunan di dalam container (.hide-table-scroll), 
-        termasuk div internal bawaan shadcn/ui yang menyebabkan scrollbar hitam muncul. 
-      */}
+    <div className="w-full space-y-0 overflow-x-hidden relative">
       <style>{`
         .hide-table-scroll *::-webkit-scrollbar {
           display: none !important;
@@ -78,19 +77,21 @@ export default function ReusableTable({
         }
       `}</style>
 
-      {/* Toolbar Tabel */}
-      <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-slate-100 dark:border-[#2e303a]">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {/* Dropdown Sembunyikan/Tampilkan Kolom */}
+      {/* Toolbar Atas - Dirapatkan khusus di Mobile menggunakan gap-2 & py-2 */}
+      <div className={`px-4 py-2.5 sm:px-6 sm:py-3.5 flex flex-row items-center justify-between gap-2 border-t border-b text-xs ${
+        isDarkMode ? 'border-[#2e303a] bg-[#1f2028] text-slate-300' : 'border-slate-100 bg-white text-slate-600'
+      }`}>
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Tombol Kolom */}
           <div className="relative" ref={dropdownRef}>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsColumnDropdownOpen((prev) => !prev)}
-              className="gap-1.5 h-9"
+              className="gap-1 h-8 px-2.5 text-xs"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="w-3 h-3" />
               <span>Kolom</span>
             </Button>
 
@@ -120,12 +121,13 @@ export default function ReusableTable({
           </div>
 
           {/* Rows per page selector */}
-          <div className="text-xs text-slate-400 flex items-center gap-2">
-            <span>Rows per page:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 hidden sm:inline">Rows per page</span>
+            <span className="text-slate-400 sm:hidden">Rows</span>
             <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg border text-xs outline-none cursor-pointer ${
+              className={`px-2 py-1 rounded-lg border text-xs outline-none cursor-pointer font-medium ${
                 isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
               }`}
             >
@@ -136,19 +138,22 @@ export default function ReusableTable({
           </div>
         </div>
 
-        {/* Kontrol Navigasi Halaman */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 font-medium">Page {currentPage} of {totalPages}</span>
-          <div className="flex items-center gap-1.5">
+        {/* Info Rentang Data & Tombol Navigasi Kanan (Dibuat rapat & ringkas) */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">
+            {startItem}-{endItem} of {data.length}
+          </span>
+
+          <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="outline"
               size="icon"
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="h-8 w-8"
+              className="h-7 w-7 rounded-lg cursor-pointer disabled:opacity-40"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
             <Button
               type="button"
@@ -156,16 +161,16 @@ export default function ReusableTable({
               size="icon"
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="h-8 w-8"
+              className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 cursor-pointer disabled:opacity-40"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* TAMPILAN DESKTOP: Menambahkan hide-table-scroll untuk menembus komponen internal Table */}
-      <div className="hidden md:block w-full border rounded-lg border-slate-200 dark:border-[#2e303a] hide-table-scroll">
+      {/* TAMPILAN DESKTOP */}
+      <div className="hidden md:block w-full border-b border-slate-200 dark:border-[#2e303a] hide-table-scroll">
         <Table className={isDarkMode ? 'text-slate-200' : 'text-slate-900'}>
           <TableHeader>
             <TableRow className={isDarkMode ? 'border-b border-[#2e303a] bg-[#16171d]/80 text-white font-bold' : 'border-b border-slate-200 bg-slate-50 text-slate-900 font-bold'}>
@@ -232,8 +237,8 @@ export default function ReusableTable({
         </Table>
       </div>
 
-      {/* TAMPILAN MOBILE (CARD VIEW) */}
-      <div className="block md:hidden space-y-3 px-4 pb-2">
+      {/* TAMPILAN MOBILE (CARD VIEW) - Padding & space dirapatkan */}
+      <div className="block md:hidden space-y-2.5 px-3 pb-2 pt-2">
         {paginatedData.length === 0 ? (
           <div className="text-center py-8 text-slate-400">Tidak ada data ditemukan.</div>
         ) : (

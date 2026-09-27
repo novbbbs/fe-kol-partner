@@ -9,7 +9,9 @@ import { TooltipProvider } from './components/ui/tooltip';
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'kol' | 'campaign'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Diubah menjadi true agar sidebar terbuka penuh saat pertama kali website dibuka
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
     <TooltipProvider>
@@ -57,7 +59,7 @@ export default function App() {
                 isDarkMode ? 'text-white' : 'text-slate-900'
               }`}>
                 {activeTab === 'dashboard' ? 'Dashboard' : 
-                 activeTab === 'kol' ? 'Master KOL & Partner' : 'Campaign'}
+                 activeTab === 'kol' ? 'KOL' : 'Campaign'}
               </h2>
             </div>
           </header>
