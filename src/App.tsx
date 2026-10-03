@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Moon, Sun, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
-import DashboardKolPage from './features/kol/pages/DashboardKolPage';
+import DashboardPage from './features/dashboard/pages/DashboardPage';
 import KolPage from './features/kol/pages/KolPage';
 import CampaignPage from './features/campaign/pages/CampaignPage';
 import { TooltipProvider } from './components/ui/tooltip';
@@ -10,8 +10,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'kol' | 'campaign'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // Diubah menjadi true agar sidebar terbuka penuh saat pertama kali website dibuka
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Jika ukuran layar lebih besar dari 768px (Desktop), buka sidebar (true). Jika mobile, tutup (false).
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
 
   return (
     <TooltipProvider>
@@ -64,9 +64,9 @@ export default function App() {
             </div>
           </header>
 
-          {/* Area Halaman Konten */}
-          <main className="p-6 md:p-8 flex-1">
-            {activeTab === 'dashboard' && <DashboardKolPage isDarkMode={isDarkMode} />}
+          {/* Area Halaman Konten - Padding dinamis berdasarkan tab aktif */}
+          <main className={`flex-1 ${activeTab === 'dashboard' ? 'p-0' : 'pt-3 px-6 pb-6 md:px-8 md:pb-8'}`}>
+            {activeTab === 'dashboard' && <DashboardPage isDarkMode={isDarkMode} />}
             {activeTab === 'kol' && <KolPage isDarkMode={isDarkMode} />}
             {activeTab === 'campaign' && <CampaignPage isDarkMode={isDarkMode} />}
           </main>

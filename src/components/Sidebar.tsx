@@ -24,6 +24,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isMasterOpen, setIsMasterOpen] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 80 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,13 +37,29 @@ export default function Sidebar({
   // Menutup popup saat klik di luar area
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
+      if (
+        popupRef.current && 
+        !popupRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setShowPopup(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleMasterClickCollapsed = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPopupPos({
+        top: rect.top,
+        left: rect.right + 8
+      });
+    }
+    setShowPopup((prev) => !prev);
+  };
 
   const handleMenuClick = (tab: 'dashboard' | 'kol' | 'campaign') => {
     setActiveTab(tab);
@@ -53,16 +71,16 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Backdrop Overlay khusus Mobile */}
+      {/* Backdrop Overlay khusus Mobile dengan z-980 */}
       {isSidebarOpen && (
         <div 
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 md:hidden transition-all"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-980 md:hidden transition-all"
         />
       )}
 
-      {/* Sidebar Drawer */}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300 border-r transform ${
+      {/* Sidebar Drawer dengan z-999 */}
+      <aside className={`fixed inset-y-0 left-0 z-999 flex flex-col transition-all duration-300 border-r transform ${
         isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'
       } ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a]' : 'bg-white border-slate-200'
@@ -73,13 +91,13 @@ export default function Sidebar({
             src="/image/saloka.png" 
             alt="Saloka Logo" 
             className={`transition-all duration-300 object-contain ${
-              isSidebarOpen ? 'h-8 max-w-35' : 'h-6 max-w-8'
+              isSidebarOpen ? 'h-8 w-32' : 'h-6 w-8'
             }`} 
           />
         </div>
 
         {/* Menu Navigasi Sidebar */}
-        <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-visible relative">
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
           
           {/* Menu Dashboard */}
           <div className="w-full">
@@ -154,11 +172,12 @@ export default function Sidebar({
             </Collapsible>
           ) : (
             
-            /* KONDISI 2: SIDEBAR TERTUTUP (Collapsed) -> Tombol Pop-up Aman */
-            <div className="relative" ref={popupRef}>
+            /* KONDISI 2: SIDEBAR TERTUTUP (Collapsed) -> Tombol pemicu Pop-up */
+            <div className="w-full">
               <button
+                ref={buttonRef}
                 type="button"
-                onClick={() => setShowPopup((prev) => !prev)}
+                onClick={handleMasterClickCollapsed}
                 className={`w-full flex items-center justify-center py-3 px-4 font-semibold text-xs transition cursor-pointer outline-none ${
                   activeTab === 'kol' || activeTab === 'campaign'
                     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-l-4 border-amber-500'
@@ -168,50 +187,55 @@ export default function Sidebar({
               >
                 <FolderKanban className="w-4 h-4 shrink-0" />
               </button>
-
-              {/* Pop-up Menu Melayang */}
-              {showPopup && (
-                <div 
-                  className={`absolute left-20 top-0 w-48 p-2 rounded-2xl shadow-2xl border z-50 space-y-1 ${
-                    isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#2e303a]">
-                    Master Data
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleMenuClick('kol')}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition ${
-                      activeTab === 'kol'
-                        ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
-                        : 'hover:bg-slate-100 dark:hover:bg-[#262833]'
-                    }`}
-                  >
-                    <PiUsers className="w-4 h-4 text-emerald-500" />
-                    <span>KOL</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleMenuClick('campaign')}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition ${
-                      activeTab === 'campaign'
-                        ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40'
-                        : 'hover:bg-slate-100 dark:hover:bg-[#262833]'
-                    }`}
-                  >
-                    <Megaphone className="w-4 h-4 text-amber-500" />
-                    <span>Campaign</span>
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
         </nav>
       </aside>
+
+      {/* Pop-up Menu Melayang DI LUAR SIDEBAR dengan z-1000 */}
+      {!isSidebarOpen && showPopup && (
+        <div 
+          ref={popupRef}
+          style={{ 
+            top: `${popupPos.top}px`, 
+            left: `${popupPos.left}px` 
+          }}
+          className={`fixed w-48 p-2 rounded-2xl shadow-2xl border z-1000 space-y-1 ${
+            isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#2e303a]">
+            Master Data
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleMenuClick('kol')}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition justify-start ${
+              activeTab === 'kol'
+                ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
+                : 'hover:bg-slate-100 dark:hover:bg-[#262833]'
+            }`}
+          >
+            <PiUsers className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span className="text-left">KOL</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleMenuClick('campaign')}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition justify-start ${
+              activeTab === 'campaign'
+                ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40'
+                : 'hover:bg-slate-100 dark:hover:bg-[#262833]'
+            }`}
+          >
+            <Megaphone className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-left">Campaign</span>
+          </button>
+        </div>
+      )}
     </>
   );
 }

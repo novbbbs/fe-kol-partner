@@ -23,11 +23,11 @@ export function useKol() {
     fetchKols();
   }, [fetchKols]);
 
-  // Fungsi untuk menambah data KOL baru ke backend
-  const addKol = async (newData: Omit<Kol, 'id' | 'kode_referral'>) => {
+  // Fungsi untuk menambah data KOL baru ke backend (handleCreate)
+  const addKol = async (payload: any) => {
     try {
       setLoading(true);
-      await kolService.createKol(newData);
+      await kolService.createKol(payload);
       // Ambil ulang data terbaru setelah berhasil nambah
       await fetchKols();
     } catch (error) {
@@ -43,7 +43,6 @@ export function useKol() {
     try {
       setLoading(true);
       await kolService.deleteKol(id);
-      // Ambil ulang data terbaru setelah dihapus
       await fetchKols();
     } catch (error) {
       console.error('Gagal menghapus data KOL:', error);

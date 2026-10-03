@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Megaphone, Save } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Megaphone, Save, Filter } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 import ReusableTable from '../../../components/ReusableTable';
 import FormModal from '../../../components/FormModal';
+import FilterDropdown from '../../../components/FilterDropdown';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../../components/ui/card';
@@ -32,7 +33,11 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
+  // State Filter Lanjutan
+  const [statusFilter, setStatusFilter] = useState('Semua Status');
+
   // Target item yang sedang di-edit
   const [selectedCampaignToEdit, setSelectedCampaignToEdit] = useState<Campaign | null>(null);
 
@@ -58,32 +63,56 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((item: Campaign) => {
       const name = item?.campaign_name || '';
-      return name.toLowerCase().includes(searchQuery.toLowerCase());
-    });
-  }, [campaigns, searchQuery]);
+      const matchSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const campaignFields = [
-    { 
-      name: 'campaign_name', 
-      label: 'Campaign Name', 
-      placeholder: 'Masukkan nama campaign', 
-      required: true 
-    },
-    {
-      name: 'status',
-      label: 'Status',
-      type: 'select' as const,
-      options: [
-        { label: 'Active', value: 'Active' },
-        { label: 'Non Active', value: 'Non Active' }
-      ],
-      required: true
+      const rawStatus = item?.status;
+      const st = String(rawStatus || '').toLowerCase().trim();
+      const isActive = rawStatus === 1 || rawStatus === '1' || st === 'active' || st === 'aktif';
+      const itemStatusLabel = isActive ? 'Active' : 'Non Active';
+
+      const matchStatus = statusFilter === 'Semua Status' || itemStatusLabel === statusFilter;
+
+      return matchSearch && matchStatus;
+    });
+  }, [campaigns, searchQuery, statusFilter]);
+
+  // Field Form Dinamis (Status disembunyikan saat Tambah, otomatis Active)
+  const campaignFields = useMemo(() => {
+    const baseFields = [
+      { 
+        name: 'campaign_name', 
+        label: 'Campaign Name', 
+        placeholder: 'Masukkan nama campaign', 
+        required: true 
+      }
+    ];
+
+    if (selectedCampaignToEdit) {
+      return [
+        ...baseFields,
+        {
+          name: 'status',
+          label: 'Status',
+          type: 'select' as const,
+          options: [
+            { label: 'Active', value: 'Active' },
+            { label: 'Non Active', value: 'Non Active' }
+          ],
+          required: true
+        }
+      ];
     }
-  ];
+
+    return baseFields;
+  }, [selectedCampaignToEdit]);
 
   // 1. Tangkap submit dari FormModal
   const handleInitialFormSubmit = async (formData: Record<string, any>) => {
-    setPendingFormData(formData);
+    const finalData = {
+      ...formData,
+      status: selectedCampaignToEdit ? formData.status : 'Active'
+    };
+    setPendingFormData(finalData);
     setIsModalOpen(false);
   };
 
@@ -96,7 +125,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
       rawStatus === 'Active' || 
       rawStatus === '1' || 
       rawStatus === 1 || 
-      rawStatus === true || 
       String(rawStatus).toLowerCase() === 'aktif';
 
     const intStatus = isStatusActive ? 1 : 0;
@@ -119,7 +147,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
 
       await fetchCampaigns();
 
-      // MEMBUNYIKAN POPUP SWEETALERT2 BERHASIL!
       Swal.fire({
         title: 'Berhasil!',
         text: activeEditTarget 
@@ -146,7 +173,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         ]);
       }
 
-      // POPUP SWEETALERT2 BERHASIL (FALLBACK)
       Swal.fire({
         title: 'Berhasil!',
         text: 'Data Campaign berhasil disimpan.',
@@ -167,7 +193,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
       await fetchCampaigns();
       setDeleteItem(null);
 
-      // POPUP SWEETALERT2 TERHAPUS!
       Swal.fire({
         title: 'Terhapus!',
         text: 'Data Campaign berhasil dihapus.',
@@ -191,7 +216,7 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
     {
       accessorKey: 'id',
       header: () => <div className="text-center">ID</div>,
-      cell: ({ row }: any) => <div className="text-center font-medium text-emerald-600">{row.index + 1}</div>
+      cell: ({ row }: any) => <div className="text-center font-medium text-slate-800 dark:text-white">{row.index + 1}</div>
     },
     {
       accessorKey: 'campaign_name',
@@ -208,7 +233,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         const isActive = 
           rawStatus === 1 || 
           rawStatus === '1' || 
-          rawStatus === true || 
           st === 'active' || 
           st === 'aktif';
 
@@ -232,17 +256,15 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
       accessorKey: 'actions',
       header: () => <div className="text-center">ACTION</div>,
       cell: ({ row }: any) => (
-        <div className="flex items-center justify-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+        <div className="flex items-center justify-center gap-1.5">
+          {/* Tombol Edit menggunakan Badge style */}
+          <Badge
+            variant="outline"
             onClick={() => {
               const rawSt = row.original?.status;
               const isStActive = 
                 rawSt === 1 || 
                 rawSt === '1' || 
-                rawSt === true || 
                 String(rawSt || '').toLowerCase() === 'active' || 
                 String(rawSt || '').toLowerCase() === 'aktif';
               
@@ -253,20 +275,21 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
               });
               setIsModalOpen(true);
             }}
-            className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
+            className="h-8 w-8 p-0 flex items-center justify-center text-amber-600 bg-amber-50 dark:bg-amber-950/45 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer rounded-lg shadow-2xs transition"
+            title="Edit Campaign"
           >
             <Edit2 className="w-3.5 h-3.5" />
-          </Button>
+          </Badge>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+          {/* Tombol Hapus menggunakan Badge style */}
+          <Badge
+            variant="outline"
             onClick={() => setDeleteItem(row.original)}
-            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+            className="h-8 w-8 p-0 flex items-center justify-center text-rose-600 bg-rose-50 dark:bg-rose-950/45 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/50 cursor-pointer rounded-lg shadow-2xs transition"
+            title="Hapus Campaign"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          </Badge>
         </div>
       )
     }
@@ -275,7 +298,7 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
   return (
     <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden">
       
-      <div className={`w-full rounded-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${
+      <div className={`w-full rounded-2xl shadow-sm border overflow-visible transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         
@@ -289,12 +312,11 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
               <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                 Master Campaign
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Total: {campaigns.length} Campaign</p>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                 <Search className="w-3.5 h-3.5" />
               </span>
@@ -303,9 +325,36 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari campaign..."
-                className={`w-full py-2.5 pl-10 pr-4 text-xs rounded-full border outline-none transition ${
+                className={`w-full py-2.5 pl-10 pr-12 text-xs rounded-full border outline-none transition ${
                   isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-2xs'
                 }`}
+              />
+
+              {/* Tombol Ikon Filter Bulat Hijau */}
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                title="Filter Campaign"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center text-white shadow-sm cursor-pointer transition"
+              >
+                <Filter className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Menggunakan FilterDropdown Global */}
+              <FilterDropdown
+                isOpen={isFilterOpen}
+                onClose={() => setIsFilterOpen(false)}
+                onApplyFilter={(filters) => {
+                  setStatusFilter(filters.status);
+                }}
+                isDarkMode={isDarkMode}
+                title="Filter Status Campaign"
+                showDateFilter={false}
+                statusOptions={[
+                  { label: 'Semua Status', value: 'Semua Status' },
+                  { label: 'Active', value: 'Active' },
+                  { label: 'Non Active', value: 'Non Active' },
+                ]}
               />
             </div>
 
@@ -316,10 +365,10 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
                 setSelectedCampaignToEdit(null);
                 setIsModalOpen(true);
               }}
-              className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm cursor-pointer"
+              className="hidden md:flex shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              <span>Tambah Campaign</span>
+              <span>Tambah</span>
             </Button>
           </div>
         </div>
@@ -370,6 +419,23 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
             }}
           />
         </div>
+      </div>
+
+      {/* Floating Action Button (Mobile) - Tombol Tambah Mengambang */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 md:hidden pointer-events-auto">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSelectedCampaignToEdit(null);
+            setIsModalOpen(true);
+          }}
+          title="Tambah Campaign"
+          className="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xl active:scale-95 transition cursor-pointer hover:bg-emerald-700"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
       </div>
 
       <FormModal

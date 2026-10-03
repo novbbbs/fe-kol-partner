@@ -46,9 +46,6 @@ export default function ReusableTable({
   const totalPages = Math.ceil(data.length / pageSize) || 1;
   const paginatedData = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const startItem = data.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
-  const endItem = Math.min(currentPage * pageSize, data.length);
-
   const toggleColumn = (key: string) => {
     setColumnVisibility((prev) => ({
       ...prev,
@@ -77,19 +74,19 @@ export default function ReusableTable({
         }
       `}</style>
 
-      {/* Toolbar Atas - Dirapatkan khusus di Mobile menggunakan gap-2 & py-2 */}
+      {/* Toolbar Atas */}
       <div className={`px-4 py-2.5 sm:px-6 sm:py-3.5 flex flex-row items-center justify-between gap-2 border-t border-b text-xs ${
         isDarkMode ? 'border-[#2e303a] bg-[#1f2028] text-slate-300' : 'border-slate-100 bg-white text-slate-600'
       }`}>
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* Tombol Kolom */}
-          <div className="relative" ref={dropdownRef}>
+          {/* Tombol Kolom - Disembunyikan di mobile dengan hidden sm:block */}
+          <div className="hidden sm:block relative" ref={dropdownRef}>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsColumnDropdownOpen((prev) => !prev)}
-              className="gap-1 h-8 px-2.5 text-xs"
+              className="gap-1 h-8 px-2.5 text-xs cursor-pointer"
             >
               <SlidersHorizontal className="w-3 h-3" />
               <span>Kolom</span>
@@ -131,17 +128,17 @@ export default function ReusableTable({
                 isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
               }`}
             >
-              {[10, 25, 50, 100].map((size) => (
+              {[25, 50, 100].map((size) => (
                 <option key={size} value={size}>{size}</option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Info Rentang Data & Tombol Navigasi Kanan (Dibuat rapat & ringkas) */}
+        {/* Indikator Page & Navigasi */}
         <div className="flex items-center gap-2 sm:gap-4">
-          <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            {startItem}-{endItem} of {data.length}
+          <span className="font-bold text-slate-800 dark:text-white tracking-wide whitespace-nowrap">
+            Page {currentPage} of {totalPages}
           </span>
 
           <div className="flex items-center gap-1">
@@ -160,7 +157,7 @@ export default function ReusableTable({
               variant="outline"
               size="icon"
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || totalPages === 0}
               className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 cursor-pointer disabled:opacity-40"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -237,7 +234,7 @@ export default function ReusableTable({
         </Table>
       </div>
 
-      {/* TAMPILAN MOBILE (CARD VIEW) - Padding & space dirapatkan */}
+      {/* TAMPILAN MOBILE (CARD VIEW) */}
       <div className="block md:hidden space-y-2.5 px-3 pb-2 pt-2">
         {paginatedData.length === 0 ? (
           <div className="text-center py-8 text-slate-400">Tidak ada data ditemukan.</div>
