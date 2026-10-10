@@ -95,20 +95,20 @@ export default function FilterDropdown({
     <div
       ref={dropdownRef}
       onClick={(e) => e.stopPropagation()}
-      className={`absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-2xl shadow-2xl border p-5 z-50 space-y-4 animate-in fade-in zoom-in duration-150 text-xs ${
+      className={`absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl shadow-2xl border p-5 z-50 space-y-4 animate-in fade-in zoom-in duration-150 text-xs ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}
     >
       {/* Header Dropdown */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2e303a]">
-        <h3 className="font-bold text-xs flex items-center gap-1.5 text-slate-800 dark:text-white">
+        <h3 className="font-bold text-xs flex items-center gap-1.5 text-slate-800 dark:text-white uppercase tracking-wider">
           <Filter className="w-3.5 h-3.5 text-emerald-500" />
           {title}
         </h3>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
+          className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer p-1"
         >
           <X className="w-4 h-4" />
         </button>
@@ -117,29 +117,33 @@ export default function FilterDropdown({
       {/* 1. Tanggal */}
       {showDateFilter && (
         <div className="space-y-1.5">
-          <label className="block font-medium text-slate-500 dark:text-slate-400">
-            Tanggal Reservasi
+          <label className="block font-semibold text-slate-400 uppercase tracking-wide text-[11px]">
+            Tanggal Reservasi / Campaign
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <DatePicker
-              value={startDate}
-              onChange={(val) => handleDateChange('start', val)}
-              placeholder="Start Date"
-              isDarkMode={isDarkMode}
-            />
-            <DatePicker
-              value={endDate}
-              onChange={(val) => handleDateChange('end', val)}
-              placeholder="End Date"
-              isDarkMode={isDarkMode}
-            />
+            <div>
+              <DatePicker
+                value={startDate}
+                onChange={(val) => handleDateChange('start', val)}
+                placeholder="Start Date"
+                isDarkMode={isDarkMode}
+              />
+            </div>
+            <div>
+              <DatePicker
+                value={endDate}
+                onChange={(val) => handleDateChange('end', val)}
+                placeholder="End Date"
+                isDarkMode={isDarkMode}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* 2. Status Dropdown */}
       <div className="space-y-1.5">
-        <label className="block font-medium text-slate-500 dark:text-slate-400">
+        <label className="block font-semibold text-slate-400 uppercase tracking-wide text-[11px]">
           Status
         </label>
         <Select 
@@ -154,10 +158,10 @@ export default function FilterDropdown({
           <SelectContent 
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className={isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}
+            className={`rounded-xl ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}
           >
             {statusOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-xs cursor-pointer">
+              <SelectItem key={opt.value} value={opt.value} className="text-xs cursor-pointer rounded-lg">
                 {opt.label}
               </SelectItem>
             ))}

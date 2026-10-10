@@ -11,13 +11,17 @@ import {
   Eye
 } from 'lucide-react';
 import { Card, CardContent } from '../../../components/ui/card';
-import { Badge } from '../../../components/ui/badge';
 import { 
   DropdownMenu, 
   DropdownMenuTrigger, 
   DropdownMenuContent, 
   DropdownMenuItem 
 } from '../../../components/ui/dropdown-menu';
+
+// ✅ IMPORT API CUSTOM KITA DI SINI
+import api from '../../../lib/api'; 
+// (Catatan: Sesuaikan path impor ini jika lokasi file api.ts Anda berbeda. 
+//  Misalnya jika api.ts ada di 'src/lib/api.ts', naikkan path-nya sesuai struktur folder Anda).
 
 interface DashboardPageProps {
   isDarkMode?: boolean;
@@ -35,8 +39,8 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const axios = (await import('axios')).default;
-        const response = await axios.get('http://127.0.0.1:8000/api/campaigns');
+        // ✅ GUNAKAN api DARI FILE CUSTOM KITA, BUKAN axios MENTAH
+        const response = await api.get('/campaigns');
         const rawData = Array.isArray(response.data) ? response.data : response.data.data || [];
         
         const activeCampaigns = rawData.filter((item: any) => {
@@ -76,14 +80,14 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
   useEffect(() => {
     const fetchDashboardSummary = async () => {
       try {
-        const axios = (await import('axios')).default;
-        let url = `http://127.0.0.1:8000/api/dashboard/summary?type=${activeCategory}`;
+        // ✅ GUNAKAN api DARI FILE CUSTOM KITA, DAN HANYA TULIS ENDPOINTNYA (Base URL sudah diurus api.ts)
+        let url = `/dashboard/summary?type=${activeCategory}`;
         
         if (activeCategory === 'event' && selectedCampaign) {
           url += `&campaign=${encodeURIComponent(String(selectedCampaign))}`;
         }
 
-        const response = await axios.get(url);
+        const response = await api.get(url);
         if (response.data) {
           setDashboardData(response.data);
         }
@@ -129,21 +133,24 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
   }));
 
   return (
-    <div className={`space-y-4 m-0 p-0 pt-0 pb-24 md:pb-6 text-xs ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+    <div className={`space-y-6 m-0 p-0 pt-0 pb-24 md:pb-6 text-sm ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
       
       {/* HEADER UTAMA DASHBOARD */}
-      <div className={`w-full rounded-none shadow-sm border-x-0 border-t-0 border-b p-3.5 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors duration-300 ${
+      <div className={`w-full rounded-none shadow-sm border-x-0 border-t-0 border-b p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-sm shrink-0">
-            <LayoutDashboard className="w-4 h-4" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-sm shrink-0">
+            <LayoutDashboard className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className={`text-sm font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-              Dashboard Kampanye KOL
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+              Dashboard KOL
             </h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Monitoring reservasi & visitor program influencer/KOL</p>
+            {/* Badge Status Kategori / Nama Event di sebelah judul */}
+            <span className="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400 px-2.5 py-1 rounded-md font-semibold">
+              {activeCategory === 'event' ? (selectedCampaignObj?.label || 'Event') : 'Reguler'}
+            </span>
           </div>
         </div>
 
@@ -155,7 +162,7 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
             <button
               type="button"
               onClick={() => setActiveCategory('reguler')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition cursor-pointer ${
                 activeCategory === 'reguler'
                   ? 'bg-white dark:bg-[#262833] text-emerald-600 dark:text-emerald-400 shadow-xs'
                   : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
@@ -168,7 +175,7 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
             <DropdownMenu>
               <DropdownMenuTrigger 
                 onClick={() => setActiveCategory('event')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 outline-none ${
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition cursor-pointer flex items-center gap-2 outline-none ${
                   activeCategory === 'event'
                     ? 'bg-white dark:bg-[#262833] text-emerald-600 dark:text-emerald-400 shadow-xs'
                     : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 bg-transparent border-0'
@@ -176,24 +183,24 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
               >
                 <span>Program Event</span>
                 {activeCategory === 'event' && (
-                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-md font-semibold">
+                  <span className="text-xs bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md font-semibold">
                     {selectedCampaignObj ? selectedCampaignObj.label : 'Pilih'}
                   </span>
                 )}
-                <ChevronDown className="w-3 h-3 ml-0.5" />
+                <ChevronDown className="w-4 h-4 ml-0.5" />
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent className={`w-56 rounded-xl border shadow-xl z-30 ${
+              <DropdownMenuContent className={`w-56 rounded-xl border shadow-xl z-30 text-sm ${
                 isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
               }`}>
-                <div className="p-2 border-b border-slate-200 dark:border-[#2e303a] flex items-center gap-2">
-                  <Search className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                <div className="p-2.5 border-b border-slate-200 dark:border-[#2e303a] flex items-center gap-2">
+                  <Search className="w-4 h-4 text-slate-400 ml-1" />
                   <input
                     type="text"
                     value={campaignSearchQuery}
                     onChange={(e) => setCampaignSearchQuery(e.target.value)}
                     placeholder="Cari campaign..."
-                    className="w-full bg-transparent outline-none text-xs placeholder-slate-400"
+                    className="w-full bg-transparent outline-none text-sm placeholder-slate-400"
                     autoFocus
                   />
                 </div>
@@ -206,16 +213,16 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
                           setActiveCategory('event');
                           setSelectedCampaign(opt.value);
                         }}
-                        className="px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-[#262833]"
+                        className="px-3 py-2.5 rounded-lg flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-[#262833] text-sm"
                       >
                         <span>{opt.label}</span>
                         {activeCategory === 'event' && String(selectedCampaign) === String(opt.value) && (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <Check className="w-4 h-4 text-emerald-600" />
                         )}
                       </DropdownMenuItem>
                     ))
                   ) : (
-                    <div className="p-3 text-center text-slate-400 text-xs">Campaign tidak ditemukan</div>
+                    <div className="p-3 text-center text-slate-400 text-sm">Campaign tidak ditemukan</div>
                   )}
                 </div>
               </DropdownMenuContent>
@@ -224,46 +231,42 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
         </div>
       </div>
 
-      <div className="px-4 md:px-6 space-y-4">
+      <div className="px-4 md:px-6 space-y-6">
         {/* STATS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
           <Card className={`rounded-2xl border shadow-xs ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-            <CardContent className="p-4 md:p-5 space-y-3">
+            <CardContent className="py-4 px-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600">
                   <Users className="w-4 h-4" />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total KOL</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total KOL</span>
               </div>
               <div>
-                <h3 className="text-2xl font-bold tracking-tight">{totalKolCount}</h3>
+                <h3 className="text-2xl font-bold tracking-tight leading-tight">{totalKolCount}</h3>
               </div>
-              <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-[#2e303a] text-[11px] text-slate-500">
-                <span>Influencer aktif</span>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
                 <span className="font-bold text-emerald-600">100% Aktif</span>
               </div>
             </CardContent>
           </Card>
 
           <Card className={`rounded-2xl border shadow-xs ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-            <CardContent className="p-4 md:p-5 space-y-2.5">
+            <CardContent className="py-4 px-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600">
                   <Calendar className="w-4 h-4" />
                 </div>
-                <div className="w-20 bg-slate-100 dark:bg-[#2e303a] h-2 rounded-full overflow-hidden">
+                <div className="w-16 bg-slate-100 dark:bg-[#2e303a] h-2 rounded-full overflow-hidden">
                   <div className="bg-emerald-600 h-full rounded-full" style={{ width: '76.8%' }} />
                 </div>
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Total Reservasi</span>
-                <div className="flex items-baseline gap-1.5">
-                  <h3 className="text-2xl font-bold tracking-tight">{totalReservasiCount}</h3>
-                  <span className="text-slate-400 text-xs">Reservasi</span>
-                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block leading-none mb-1">Total Reservasi</span>
+                <h3 className="text-2xl font-bold tracking-tight leading-tight">{totalReservasiCount}</h3>
               </div>
-              <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-[#2e303a] text-[11px] text-slate-500">
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
                 <span>Status</span>
                 <span className="font-bold text-emerald-600">Aktif</span>
               </div>
@@ -271,18 +274,17 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
           </Card>
 
           <Card className={`rounded-2xl border shadow-xs ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-            <CardContent className="p-4 md:p-5 space-y-2.5">
+            <CardContent className="py-4 px-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600">
                   <Eye className="w-4 h-4" />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Visitor</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Visitor</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5 opacity-0">&nbsp;</span>
-                <h3 className="text-2xl font-bold tracking-tight">{totalVisitorCount}</h3>
+                <h3 className="text-2xl font-bold tracking-tight leading-tight">{totalVisitorCount}</h3>
               </div>
-              <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-[#2e303a] text-[11px] text-slate-500">
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
                 <span>Scan tiket terverifikasi</span>
                 <span className="font-bold text-slate-700 dark:text-slate-300">{totalVisitorCount} Pax</span>
               </div>
@@ -292,7 +294,7 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
         </div>
 
         {/* GRID KARTU KUSTOM: TOP 5 KOL & TOP 5 CITY */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* TOP 5 KOL */}
           <div className={`rounded-2xl border shadow-sm overflow-hidden ${
@@ -300,54 +302,51 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
           }`}>
             <div className="p-4 md:p-5 border-b border-slate-100 dark:border-[#2e303a] flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  Top 5 KOL ({activeCategory === 'event' ? (selectedCampaignObj?.label || 'Campaign') : 'Reguler'})
-                  <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-400 font-medium text-[10px] px-2 py-0.5 rounded-full">
-                    Performa Terbaik
-                  </Badge>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  Top 5 KOL
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Berdasarkan reservasi & visitor tertinggi</p>
+                <p className="text-xs text-slate-400 mt-0.5">Berdasarkan reservasi & visitor tertinggi</p>
               </div>
-              <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-500">
-                <Trophy className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-500">
+                <Trophy className="w-5 h-5" />
               </div>
             </div>
 
-            <div className="p-2 space-y-1">
+            <div className="p-3 space-y-2">
               {topKolData.length > 0 ? (
                 topKolData.map((item: any, idx: number) => (
-                  <div key={item.id} className="p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
+                  <div key={item.id} className="p-3.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-900/50">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-bold text-sm flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-900/50">
                         {idx + 1}
                       </div>
-                      <div className={`w-9 h-9 rounded-xl font-bold flex items-center justify-center text-xs shrink-0 ${item.avatarBg}`}>
+                      <div className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center text-sm shrink-0 ${item.avatarBg}`}>
                         {item.initials}
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 dark:text-white text-xs">{item.nama_kol}</h4>
-                        <p className="text-[11px] text-slate-400">@{item.username} • {item.kota_asal}</p>
+                      <div className="text-left">
+                        <h4 className="font-bold text-slate-800 dark:text-white text-sm">{item.nama_kol}</h4>
+                        <p className="text-xs text-slate-400">@{item.username} • {item.kota_asal}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-4 text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
+                    <div className="flex items-center justify-between sm:justify-end gap-5 text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
                       <div>
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.reservasi}</span>
-                        <span className="text-[10px] text-slate-400 uppercase">Reservasi</span>
+                        <span className="font-bold block text-slate-800 dark:text-white text-sm">{item.reservasi}</span>
+                        <span className="text-[11px] text-slate-400 uppercase">Reservasi</span>
                       </div>
                       <div>
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.total_tiket}</span>
-                        <span className="text-[10px] text-slate-400 uppercase">Visitor</span>
+                        <span className="font-bold block text-slate-800 dark:text-white text-sm">{item.total_tiket}</span>
+                        <span className="text-[11px] text-slate-400 uppercase">Visitor</span>
                       </div>
-                      <div className="sm:w-28 text-right">
-                        <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-xs">{item.revenue}</span>
-                        <span className="text-[10px] text-slate-400 uppercase">Pendapatan</span>
+                      <div className="sm:w-32 text-right">
+                        <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-sm">{item.revenue}</span>
+                        <span className="text-[11px] text-slate-400 uppercase">Pendapatan</span>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-6 text-center text-slate-400 text-xs">
+                <div className="p-6 text-center text-slate-400 text-sm">
                   Belum ada data KOL untuk kategori ini.
                 </div>
               )}
@@ -360,54 +359,51 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
           }`}>
             <div className="p-4 md:p-5 border-b border-slate-100 dark:border-[#2e303a] flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  Top 5 City (Demografi)
-                  <Badge className="bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 font-medium text-[10px] px-2 py-0.5 rounded-full">
-                    Demografi
-                  </Badge>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  Top 5 City 
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Kota asal audiens & visitor KOL terbanyak</p>
+                <p className="text-xs text-slate-400 mt-0.5">Kota asal audiens & visitor KOL terbanyak</p>
               </div>
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-500">
-                <MapPin className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-500">
+                <MapPin className="w-5 h-5" />
               </div>
             </div>
 
-            <div className="p-2 space-y-1">
+            <div className="p-3 space-y-2">
               {topCityList.length > 0 ? (
                 topCityList.map((item: any) => (
-                  <div key={item.city} className="p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
+                  <div key={item.city} className="p-3.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-900/50">
+                      <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold text-sm flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-900/50">
                         {item.rank}
                       </div>
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 font-bold flex items-center justify-center text-xs shrink-0">
-                        <MapPin className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 font-bold flex items-center justify-center text-sm shrink-0">
+                        <MapPin className="w-5 h-5" />
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 dark:text-white text-xs">{item.city}</h4>
-                        <p className="text-[11px] text-slate-400">{item.province}</p>
+                      <div className="text-left">
+                        <h4 className="font-bold text-slate-800 dark:text-white text-sm">{item.city}</h4>
+                        <p className="text-xs text-slate-400">{item.province}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-4 text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
+                    <div className="flex items-center justify-between sm:justify-end gap-5 text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
                       <div>
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.kol} KOL</span>
-                        <span className="text-[10px] text-slate-400 uppercase">Aktif</span>
+                        <span className="font-bold block text-slate-800 dark:text-white text-sm">{item.kol} KOL</span>
+                        <span className="text-[11px] text-slate-400 uppercase">Aktif</span>
                       </div>
                       <div>
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.visitor}</span>
-                        <span className="text-[10px] text-slate-400 uppercase">Visitor</span>
+                        <span className="font-bold block text-slate-800 dark:text-white text-sm">{item.visitor}</span>
+                        <span className="text-[11px] text-slate-400 uppercase">Visitor</span>
                       </div>
-                      <div className="sm:w-28 text-right">
-                        <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-xs">{item.revenue}</span>
-                        <span className="text-[10px] text-slate-400 uppercase">Total Tiket</span>
+                      <div className="sm:w-32 text-right">
+                        <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-sm">{item.revenue}</span>
+                        <span className="text-[11px] text-slate-400 uppercase">Total Tiket</span>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-6 text-center text-slate-400 text-xs">
+                <div className="p-6 text-center text-slate-400 text-sm">
                   Belum ada data kota untuk kategori ini.
                 </div>
               )}

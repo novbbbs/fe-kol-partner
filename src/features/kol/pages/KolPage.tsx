@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, } from 'react';
 import { Plus, FileSpreadsheet, Filter, Search, Edit2, Trash2 } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import Swal from 'sweetalert2';
@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 import ReusableTable from '../../../components/ReusableTable';
 import FormModal from '../../../components/FormModal';
 import FilterDropdown from '../../../components/FilterDropdown';
-import { Badge } from '../../../components/ui/badge';
+import { Switch } from '../../../components/ui/switch';
 import { 
   Card, 
   CardHeader, 
@@ -38,7 +38,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
   const { kols, refetch, addKol } = useKol();
 
   const [inputValue, setInputValue] = useState('');
-  const [debouncedFilter, setDebouncedFilter] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('Semua');
@@ -61,9 +61,21 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     { label: 'Memuat tipe campaign...', value: '' }
   ]);
 
+  const [, setMasterCampaignsMap] = useState<Record<string, boolean>>({});
+
   const [selectedKolToEdit, setSelectedKolToEdit] = useState<Kol | null>(null);
   const [rawProvincesData, setRawProvincesData] = useState<any[]>([]);
   const [selectedProvinceName, setSelectedProvinceName] = useState('');
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth_token');
+    return {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : '',
+        Accept: 'application/json'
+      }
+    };
+  };
 
   const getFormattedDate = (date: Date) => {
     const year = date.getFullYear();
@@ -85,7 +97,6 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     return getFormattedDate(d);
   }, []);
 
-  // Fetch Provinsi
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
@@ -117,7 +128,6 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     fetchProvinces();
   }, []);
 
-  // Fungsi untuk mengambil data kota berdasarkan nama provinsi
   const fetchCitiesByProvinceName = async (provinceName: string) => {
     try {
       if (!provinceName) {
@@ -162,14 +172,26 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     }
   };
 
-  // Fetch Campaign / Type
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
         const axios = (await import('axios')).default;
-        const response = await axios.get('http://127.0.0.1:8000/api/campaigns');
+        const response = await axios.get('http://127.0.0.1:8000/api/campaigns', getAuthHeaders());
         const rawData = Array.isArray(response.data) ? response.data : response.data.data || [];
         
+        const statusMap: Record<string, boolean> = {};
+        rawData.forEach((item: any) => {
+          const name = item.campaign_name || item.name || item.title;
+          if (name) {
+            const statusVal = item.status;
+            const statusStr = String(statusVal || '').toLowerCase().trim();
+            const isActive = statusVal === 1 || statusVal === '1' || statusStr === 'active' || statusStr === 'aktif';
+            statusMap[name.toLowerCase()] = isActive;
+          }
+        });
+        statusMap['reguler'] = true;
+        setMasterCampaignsMap(statusMap);
+
         const activeCampaigns = rawData.filter((item: any) => {
           const statusStr = String(item.status || '').toLowerCase().trim();
           return item.status === 1 || item.status === '1' || statusStr === 'active' || statusStr === 'aktif';
@@ -208,40 +230,21 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedFilter(inputValue);
-    }, 300);
+      setDebouncedSearch(inputValue);
+    }, 400);
     return () => clearTimeout(handler);
   }, [inputValue]);
 
-  const filteredData = useMemo(() => {
-    return kols.filter((item) => {
-      const query = debouncedFilter.trim().toLowerCase();
-      const matchSearch =
-        !query ||
-        (item.name && item.name.toLowerCase().includes(query)) ||
-        (item.username && item.username.toLowerCase().includes(query)) ||
-        (item.city_name && item.city_name.toLowerCase().includes(query)) ||
-        (item.province_name && item.province_name.toLowerCase().includes(query)) ||
-        (item.referral_code && item.referral_code.toLowerCase().includes(query)) ||
-        (item.whatsapp && item.whatsapp.toLowerCase().includes(query));
-
-      const matchStatus = statusFilter === 'Semua' || item.status === statusFilter;
-
-      let matchDate = true;
-      const itemStartDate = item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '';
-      const itemEndDate = item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '';
-
-      if (startDateFilter && endDateFilter) {
-        matchDate = itemStartDate === startDateFilter && itemEndDate === endDateFilter;
-      } else if (startDateFilter) {
-        matchDate = itemStartDate === startDateFilter;
-      } else if (endDateFilter) {
-        matchDate = itemEndDate === endDateFilter;
-      }
-
-      return matchSearch && matchStatus && matchDate;
+  useEffect(() => {
+    refetch({
+      search: debouncedSearch,
+      status: statusFilter,
+      startDate: startDateFilter,
+      endDate: endDateFilter
     });
-  }, [kols, debouncedFilter, statusFilter, startDateFilter, endDateFilter]);
+  }, [debouncedSearch, statusFilter, startDateFilter, endDateFilter, refetch]);
+
+  const filteredData = kols;
 
   const generateReferralCode = () => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -251,6 +254,61 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     }
     const numbers = Math.floor(10000 + Math.random() * 90000);
     return `${result}${numbers}`;
+  };
+
+  const handleToggleStatusKol = async (item: Kol) => {
+    const targetId = item.id || item.uid;
+    if (!targetId) return;
+
+    const rawStatus = item.status;
+    const isCurrentlyActive = 
+      rawStatus === 1 || 
+      rawStatus === '1' || 
+      String(rawStatus).toLowerCase() === 'active' || 
+      String(rawStatus).toLowerCase() === 'aktif';
+
+    const newStatusValue = isCurrentlyActive ? 0 : 1;
+
+    try {
+      const axios = (await import('axios')).default;
+      
+      const payload = {
+        name: item.name || item.nama_kol,
+        nama_kol: item.name || item.nama_kol,
+        username: item.username || '',
+        whatsapp: String(item.whatsapp || '').replace(/\D/g, ''),
+        province_name: item.province_name || item.provinsi || '',
+        provinsi: item.province_name || item.provinsi || '',
+        city_name: item.city_name || item.kota_asal || '',
+        kota_asal: item.city_name || item.kota_asal || '',
+        type: item.type || item.tipe_kol || 'Reguler',
+        campaign_start_date: item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : null,
+        campaign_end_date: item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : null,
+        referral_code: item.referral_code || item.kode_referral,
+        status: newStatusValue
+      };
+
+      await axios.put(`http://127.0.0.1:8000/api/kols/${targetId}`, payload, getAuthHeaders());
+      
+      await refetch({
+        search: debouncedSearch,
+        status: statusFilter,
+        startDate: startDateFilter,
+        endDate: endDateFilter
+      });
+
+      Swal.fire({
+        title: 'Berhasil!',
+        text: `Status KOL "${item.name || item.nama_kol}" diubah menjadi ${newStatusValue === 1 ? 'Active' : 'Non Active'}.`,
+        icon: 'success',
+        timer: 1200,
+        showConfirmButton: false
+      });
+    } catch (error: any) {
+      console.error('Gagal mengubah status KOL:', error);
+      const errMsg = error.response?.data?.message || 'Terjadi kesalahan saat memperbarui status KOL.';
+      Swal.fire('Gagal!', errMsg, 'error');
+    }
   };
 
   const handleInitialFormSubmit = async (formData: Record<string, any>) => {
@@ -307,15 +365,21 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
         campaign_start_date: formatDate(pendingFormData.campaign_start_date),
         campaign_end_date: formatDate(pendingFormData.campaign_end_date),
         referral_code: selectedKolToEdit ? (selectedKolToEdit.referral_code || selectedKolToEdit.kode_referral) : generateReferralCode(),
-        status: 1 
+        status: selectedKolToEdit ? (selectedKolToEdit.status ?? 1) : 1 
       };
 
       const activeEditTarget = selectedKolToEdit;
 
       if (activeEditTarget) {
         const targetId = activeEditTarget.id || activeEditTarget.uid;
-        await axios.put(`http://127.0.0.1:8000/api/kols/${targetId}`, payload);
-        if (typeof refetch === 'function') await refetch();
+        await axios.put(`http://127.0.0.1:8000/api/kols/${targetId}`, payload, getAuthHeaders());
+        
+        await refetch({
+          search: debouncedSearch,
+          status: statusFilter,
+          startDate: startDateFilter,
+          endDate: endDateFilter
+        });
         
         Swal.fire({
           title: 'Berhasil!',
@@ -325,6 +389,13 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
         });
       } else {
         await addKol(payload);
+        
+        await refetch({
+          search: debouncedSearch,
+          status: statusFilter,
+          startDate: startDateFilter,
+          endDate: endDateFilter
+        });
 
         Swal.fire({
           title: 'Berhasil!',
@@ -369,12 +440,15 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
 
     try {
       const axios = (await import('axios')).default;
-      const response = await axios.delete(`http://127.0.0.1:8000/api/kols/${targetId}`);
+      const response = await axios.delete(`http://127.0.0.1:8000/api/kols/${targetId}`, getAuthHeaders());
       
       if (response.status === 200 || response.data?.success) {
-        if (typeof refetch === 'function') {
-          await refetch();
-        }
+        await refetch({
+          search: debouncedSearch,
+          status: statusFilter,
+          startDate: startDateFilter,
+          endDate: endDateFilter
+        });
         
         setDeleteItem(null);
         
@@ -416,33 +490,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Master KOL');
 
       const fileName = `Master_KOL_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-      if (isMobile) {
-        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
-        
-        function s2ab(s: string) {
-          const buf = new ArrayBuffer(s.length);
-          const view = new Uint8Array(buf);
-          for (let i = 0; i !== s.length; ++i) view[i] = s.charCodeAt(i) & 0xff;
-          return buf;
-        }
-
-        const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
-        const blobUrl = URL.createObjectURL(blob);
-        const opened = window.open(blobUrl, '_blank');
-        
-        if (!opened) {
-          const anchor = document.createElement('a');
-          anchor.href = blobUrl;
-          anchor.download = fileName;
-          document.body.appendChild(anchor);
-          anchor.click();
-          document.body.removeChild(anchor);
-        }
-      } else {
-        XLSX.writeFile(workbook, fileName);
-      }
+      XLSX.writeFile(workbook, fileName);
 
       Swal.fire({
         title: 'Berhasil!',
@@ -572,10 +620,10 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     },
     { 
       accessorKey: 'referral_code', 
-      header: () => <div className="text-center">KODE REFERRAL</div>, 
+      header: () => <div className="text-center">Kode Referral</div>, 
       cell: ({ row }: any) => (
         <div className="text-center">
-          <span className="font-mono text-xs font-bold text-slate-800 dark:text-white">
+          <span className="font-mono text-sm font-bold text-slate-800 dark:text-white">
             {row.original.referral_code || row.original.kode_referral || '-'}
           </span>
         </div>
@@ -583,27 +631,31 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     },
     { 
       accessorKey: 'name', 
-      header: () => <div className="text-center">NAME</div>, 
-      cell: ({ row }: any) => <div className="text-center font-semibold">{row.original.name || row.original.nama_kol}</div> 
+      header: () => <div className="text-left pl-3">Name</div>, 
+      cell: ({ row }: any) => (
+        <div className="text-left pl-3">
+          <span className="font-semibold whitespace-nowrap block">{row.original.name || row.original.nama_kol}</span>
+        </div>
+      ) 
     },
     { 
       accessorKey: 'username', 
-      header: () => <div className="text-center">USERNAME</div>,
+      header: () => <div className="text-center">Username</div>,
       cell: ({ row }: any) => <div className="text-center">{row.original.username || '-'}</div>
     },
     { 
       accessorKey: 'whatsapp', 
-      header: () => <div className="text-center">WHATSAPP</div>,
+      header: () => <div className="text-center">Whatsapp</div>,
       cell: ({ row }: any) => <div className="text-center">{row.original.whatsapp || '-'}</div>
     },
     { 
       accessorKey: 'city_name', 
-      header: () => <div className="text-center">KOTA ASAL</div>, 
+      header: () => <div className="text-center">Kota Asal</div>, 
       cell: ({ row }: any) => <div className="text-center">{row.original.city_name || row.original.kota_asal || '-'}</div> 
     },
     { 
       accessorKey: 'province_name', 
-      header: () => <div className="text-center">PROVINSI</div>, 
+      header: () => <div className="text-center">Provinsi</div>, 
       cell: ({ row }: any) => {
         const prov = row.original.province_name || row.original.provinsi;
         return <div className="text-center">{prov || '-'}</div>;
@@ -611,18 +663,18 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     },
     { 
       accessorKey: 'type', 
-      header: () => <div className="text-center">TYPE</div>, 
+      header: () => <div className="text-center">Type</div>, 
       cell: ({ row }: any) => <div className="text-center">{row.original.type || row.original.tipe_kol || '-'}</div> 
     },
     { 
       accessorKey: 'campaign_start_date', 
-      header: () => <div className="text-center">CAMPAIGN START DATE</div>, 
+      header: () => <div className="text-center">Campaign Start Date</div>, 
       cell: ({ row }: any) => {
         const dateVal = row.original.campaign_start_date;
         const formattedDate = dateVal ? String(dateVal).split('T')[0] : '-';
         return (
           <div className="text-center">
-            <span className="font-mono text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">
+            <span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">
               {formattedDate}
             </span>
           </div>
@@ -631,13 +683,13 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     },
     { 
       accessorKey: 'campaign_end_date', 
-      header: () => <div className="text-center">CAMPAIGN END DATE</div>, 
+      header: () => <div className="text-center">Campaign End Date</div>, 
       cell: ({ row }: any) => {
         const dateVal = row.original.campaign_end_date;
         const formattedDate = dateVal ? String(dateVal).split('T')[0] : '-';
         return (
           <div className="text-center">
-            <span className="font-mono text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">
+            <span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">
               {formattedDate}
             </span>
           </div>
@@ -646,34 +698,29 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     },
     { 
       accessorKey: 'status', 
-      header: () => <div className="text-center">STATUS</div>, 
+      header: () => <div className="text-center">Status</div>, 
       cell: ({ row }: any) => {
         const status = row.original.status;
-        const endDate = row.original.campaign_end_date ? String(row.original.campaign_end_date).split('T')[0] : '';
-        const today = new Date().toISOString().split('T')[0];
-        
-        const isExpired = endDate && today > endDate;
-        const isActive = !isExpired && (status === 'ACTIVE' || status === 1 || status === '1' || String(status).toLowerCase() === 'aktif');
+        const isActive = status === 1 || status === '1' || String(status).toLowerCase() === 'active' || String(status).toLowerCase() === 'aktif';
 
         return (
-          <div className="text-center">
-            <Badge 
-              variant={isActive ? 'default' : 'destructive'}
-              className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
-                isActive 
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
-                  : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
-              }`}
-            >
-              {isActive ? 'Active' : 'Non Active'}
-            </Badge>
+          <div className="flex items-center justify-center">
+            <Switch
+              checked={isActive}
+              onCheckedChange={() => handleToggleStatusKol(row.original)}
+              style={{
+                backgroundColor: isActive ? '#0d8a6a' : '#e11d48'
+              }}
+              className="cursor-pointer shadow-2xs transition-colors"
+              title={isActive ? 'Nonaktifkan KOL' : 'Aktifkan KOL'}
+            />
           </div>
         );
       } 
     },
     {
       accessorKey: 'actions',
-      header: () => <div className="text-center">ACTION</div>,
+      header: () => <div className="text-center">Action</div>,
       cell: ({ row }: any) => (
         <div className="flex items-center justify-center gap-1.5">
           <Button
@@ -688,9 +735,9 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
               }
               setIsModalOpen(true);
             }}
-            className="h-8 w-8 text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-950/70 rounded-lg shadow-2xs"
+            className="h-9 w-9 text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-950/70 rounded-lg shadow-2xs"
           >
-            <Edit2 className="w-3.5 h-3.5" />
+            <Edit2 className="w-4 h-4" />
           </Button>
 
           <Button
@@ -699,9 +746,9 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
             size="icon"
             title="Hapus Data KOL"
             onClick={() => setDeleteItem(row.original)}
-            className="h-8 w-8 text-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-950/70 rounded-lg shadow-2xs"
+            className="h-9 w-9 text-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-amber-950/70 rounded-lg shadow-2xs"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       )
@@ -709,15 +756,15 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
   ];
 
   return (
-    <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden">
-      <div className={`w-full rounded-2xl shadow-sm border overflow-visible transition-colors duration-300 ${
+    <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm">
+      <div className={`w-full rounded-none shadow-sm border overflow-visible transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         
         {/* HEADER PANEL */}
-        <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2e303a]">
+        <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2e303a] overflow-visible">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
               <PiUsers className="w-5 h-5" />
             </div>
             <div>
@@ -727,17 +774,17 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative w-full sm:w-72">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 overflow-visible">
+            <div className="relative w-full sm:w-72 overflow-visible">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <Search className="w-3.5 h-3.5" />
+                <Search className="w-4 h-4" />
               </span>
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Cari data disini..."
-                className={`w-full py-2.5 pl-10 pr-12 text-xs rounded-full border outline-none transition ${
+                className={`w-full py-2.5 pl-10 pr-12 text-sm rounded-full border outline-none transition ${
                   isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 shadow-2xs'
                 }`}
               />
@@ -746,12 +793,15 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
                 type="button"
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 title="Filter Lanjutan"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-emerald-600 transition"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-emerald-700 transition"
               >
-                <Filter className="w-3.5 h-3.5" />
+                <Filter className="w-4 h-4" />
               </button>
 
-              {/* Menggunakan FilterDropdown Global */}
+              {((statusFilter && statusFilter !== 'Semua') || startDateFilter || endDateFilter) && (
+                <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-[#16171d] pointer-events-none z-20" />
+              )}
+
               <FilterDropdown
                 isOpen={isFilterOpen}
                 onClose={() => setIsFilterOpen(false)}
@@ -774,7 +824,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
             <Button
               type="button"
               onClick={handleExportExcel}
-              className="hidden md:flex shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm"
+              className="hidden md:flex shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm h-10 px-4 shadow-sm"
             >
               <FileSpreadsheet className="w-4 h-4 mr-1.5" />
               <span>Export</span>
@@ -787,7 +837,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
                 setCityOptions([{ label: 'Pilih Provinsi terlebih dahulu', value: '' }]);
                 setIsModalOpen(true);
               }}
-              className="hidden md:flex shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-10 px-4 shadow-sm"
+              className="hidden md:flex shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm h-10 px-4 shadow-sm"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               <span>Tambah</span>
@@ -802,70 +852,65 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
             columns={columns}
             isDarkMode={isDarkMode}
             renderCardMobile={(item, absoluteIndex) => {
-              const endDate = item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '';
-              const today = new Date().toISOString().split('T')[0];
-              const isExpired = endDate && today > endDate;
-              const isActive = !isExpired && (item.status === 'ACTIVE' || item.status === 1 || item.status === '1' || String(item.status).toLowerCase() === 'aktif');
+              const statusVal = item.status;
+              const isActive = statusVal === 1 || statusVal === '1' || String(statusVal).toLowerCase() === 'active' || String(statusVal).toLowerCase() === 'aktif';
               const provName = item.province_name || item.provinsi || '-';
 
               return (
                 <Card key={item.id || item.uid || absoluteIndex} className={isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white shadow-md' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}>
-                  <CardHeader className="p-4 pb-3 flex flex-col items-center text-center space-y-1.5 border-b border-slate-100 dark:border-[#2e303a] relative">
-                    <div className="absolute right-4 top-4">
-                      <Badge 
-                        variant={isActive ? 'default' : 'destructive'}
-                        className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
-                          isActive 
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
-                            : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
-                        }`}
-                      >
-                        {isActive ? 'Active' : 'Non Active'}
-                      </Badge>
+                  <CardHeader className="p-4 pb-3 flex flex-row items-center justify-between space-y-0 border-b border-slate-100 dark:border-[#2e303a]">
+                    <div>
+                      <CardTitle className="text-sm font-bold text-slate-800 dark:text-white">
+                        ID: #{absoluteIndex}
+                      </CardTitle>
+                      <CardDescription className="text-xs text-slate-400 mt-0.5">
+                        Referral: <span className="font-mono font-bold text-slate-800 dark:text-white">{item.referral_code || item.kode_referral || '-'}</span>
+                      </CardDescription>
                     </div>
-
-                    <CardTitle className="text-xs font-bold text-slate-800 dark:text-white">
-                      ID: #{absoluteIndex}
-                    </CardTitle>
-                    <CardDescription className="text-[11px] text-slate-400">
-                      Referral: <span className="font-mono font-bold text-slate-800 dark:text-white">{item.referral_code || item.kode_referral || '-'}</span>
-                    </CardDescription>
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={() => handleToggleStatusKol(item)}
+                      style={{
+                        backgroundColor: isActive ? '#0d8a6a' : '#e11d48'
+                      }}
+                      className="cursor-pointer shadow-2xs transition-colors"
+                    />
                   </CardHeader>
                   
-                  <CardContent className="p-4 space-y-2 text-xs">
+                  <CardContent className="p-4 space-y-2.5 text-sm">
                     <div>
-                      <p className="font-bold text-sm text-slate-800 dark:text-white">{item.name || item.nama_kol}</p>
-                      <p className="text-slate-400 text-[11px]">@{item.username || '-'}</p>
+                      <p className="font-bold text-base text-slate-800 dark:text-white">{item.name || item.nama_kol}</p>
+                      <p className="text-slate-400 text-xs">@{item.username || '-'}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 text-[11px]">
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 text-xs">
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Whatsapp</span>
+                        <span className="text-slate-400 block text-[11px] uppercase font-semibold">Whatsapp</span>
                         <span className="font-medium text-slate-700 dark:text-slate-200">{item.whatsapp || '-'}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Type</span>
+                        <span className="text-slate-400 block text-[11px] uppercase font-semibold">Type</span>
                         <span className="font-medium text-slate-700 dark:text-slate-200">{item.type || item.tipe_kol || '-'}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Kota Asal</span>
+                        <span className="text-slate-400 block text-[11px] uppercase font-semibold">Kota Asal</span>
                         <span className="font-medium text-slate-700 dark:text-slate-200">{item.city_name || item.kota_asal || '-'}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Provinsi</span>
+                        <span className="text-slate-400 block text-[11px] uppercase font-semibold">Provinsi</span>
                         <span className="font-medium text-slate-700 dark:text-slate-200">{provName}</span>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="pt-2 border-t border-slate-100 dark:border-[#2e303a]/60 grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Start Date</span>
+                        <span className="text-slate-400 block text-[11px] uppercase font-semibold">Start Date</span>
                         <span className="font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1f2028] px-2 py-0.5 rounded border border-slate-200 dark:border-[#2e303a] inline-block mt-0.5">
                           {item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">End Date</span>
+                        <span className="text-slate-400 block text-[11px] uppercase font-semibold">End Date</span>
                         <span className="font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1f2028] px-2 py-0.5 rounded border border-slate-200 dark:border-[#2e303a] inline-block mt-0.5">
                           {item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-'}
                         </span>
@@ -884,18 +929,18 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
                         }
                         setIsModalOpen(true);
                       }}
-                      className="h-8 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900 dark:hover:bg-amber-950/30"
+                      className="h-9 text-sm text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900 dark:hover:bg-amber-950/30"
                     >
-                      <Edit2 className="w-3.5 h-3.5 mr-1" />
+                      <Edit2 className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
                     <Button
                       size="sm"
                       variant="destructive"
                       onClick={() => setDeleteItem(item)}
-                      className="h-8 text-xs"
+                      className="h-9 text-sm"
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      <Trash2 className="w-4 h-4 mr-1" />
                       Hapus
                     </Button>
                   </CardFooter>
@@ -965,7 +1010,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
               <AlertDialogTitle className="text-base font-bold tracking-tight">
                 {selectedKolToEdit ? 'Konfirmasi Perubahan?' : 'Simpan KOL Baru?'}
               </AlertDialogTitle>
-              <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <AlertDialogDescription className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                 Apakah Anda yakin ingin {selectedKolToEdit ? 'memperbarui' : 'menambahkan'} data KOL <span className="font-semibold text-emerald-600">{pendingFormData?.name || pendingFormData?.nama_kol || pendingFormData?.nama}</span>?
               </AlertDialogDescription>
             </div>
@@ -973,13 +1018,13 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
           <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
             <AlertDialogCancel 
               onClick={() => { setPendingFormData(null); setSelectedKolToEdit(null); }} 
-              className="w-full sm:w-1/2 rounded-xl h-10 text-xs font-semibold"
+              className="w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold"
             >
               Batal
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmSave} 
-              className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-xs font-semibold shadow-lg"
+              className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg"
             >
               Ya, Simpan
             </AlertDialogAction>
@@ -1001,7 +1046,7 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
               <AlertDialogTitle className="text-base font-bold tracking-tight">
                 Hapus Data KOL Ini?
               </AlertDialogTitle>
-              <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <AlertDialogDescription className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                 Tindakan ini bersifat permanen. Data KOL <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.name || deleteItem?.nama_kol}</span> akan dihapus dari sistem.
               </AlertDialogDescription>
             </div>
@@ -1010,14 +1055,14 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
           <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
             <AlertDialogCancel 
               onClick={() => setDeleteItem(null)}
-              className="w-full sm:w-1/2 rounded-xl h-10 text-xs font-semibold border-slate-200 dark:border-[#2e303a] hover:bg-slate-100 dark:hover:bg-[#16171d]"
+              className="w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold border-slate-200 dark:border-[#2e303a] hover:bg-slate-100 dark:hover:bg-[#16171d]"
             >
               Batal
             </AlertDialogCancel>
             
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="w-full sm:w-1/2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-10 text-xs font-semibold shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
+              className="w-full sm:w-1/2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
             >
               Ya, Hapus
             </AlertDialogAction>

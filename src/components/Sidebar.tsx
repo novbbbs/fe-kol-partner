@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BarChart3, Megaphone, ChevronDown, FolderKanban } from 'lucide-react';
+import { BarChart3, Megaphone, ChevronDown, FolderKanban, LogOut } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import { 
   Collapsible, 
@@ -13,6 +13,9 @@ interface SidebarProps {
   isDarkMode: boolean;
   isSidebarOpen: boolean;
   onCloseMobile?: () => void;
+  // Tambahan Props untuk Profil dan Logout
+  user?: any;
+  onLogout?: () => void;
 }
 
 export default function Sidebar({ 
@@ -20,7 +23,9 @@ export default function Sidebar({
   setActiveTab, 
   isDarkMode, 
   isSidebarOpen, 
-  onCloseMobile 
+  onCloseMobile,
+  user,
+  onLogout
 }: SidebarProps) {
   const [isMasterOpen, setIsMasterOpen] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
@@ -189,8 +194,45 @@ export default function Sidebar({
               </button>
             </div>
           )}
-
         </nav>
+
+        {/* --- BAGIAN BAWAH: Profil Admin & Tombol Logout --- */}
+        <div className={`mt-auto border-t transition-all duration-300 ${isDarkMode ? 'border-[#2e303a]' : 'border-slate-200'} ${isSidebarOpen ? 'p-4' : 'p-3 flex flex-col items-center'}`}>
+          {isSidebarOpen ? (
+            <div className="flex flex-col gap-3">
+              {/* Info Admin */}
+              <div className="flex flex-col">
+                <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                  {user?.name || 'Admin Saloka'}
+                </p>
+                <p className="text-xs text-slate-400 font-mono">
+                  ID: {user?.username || '1234'}
+                </p>
+              </div>
+              
+              {/* Tombol Logout */}
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl shadow-sm transition cursor-pointer"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span>Keluar</span>
+              </button>
+            </div>
+          ) : (
+            /* Tampilan Logout saat Sidebar Mengecil (Collapsed) */
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex items-center justify-center w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-xl shadow-sm transition cursor-pointer"
+              title="Keluar Akun"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+            </button>
+          )}
+        </div>
+
       </aside>
 
       {/* Pop-up Menu Melayang DI LUAR SIDEBAR dengan z-1000 */}

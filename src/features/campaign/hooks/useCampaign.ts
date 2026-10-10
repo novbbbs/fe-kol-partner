@@ -1,17 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { campaignService } from '../services/campaign.service';
 
+interface FetchParams {
+  search?: string;
+  status?: string;
+}
+
 export function useCampaign() {
   const [campaignList, setCampaignList] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchCampaigns = useCallback(async () => {
+  const fetchCampaigns = useCallback(async (params?: FetchParams) => {
     try {
       setLoading(true);
-      const data = await campaignService.getAllCampaigns();
+      const data = await campaignService.getAllCampaigns(params);
       setCampaignList(data);
     } catch (error) {
       console.error('Gagal mengambil data campaign:', error);
+      setCampaignList([]);
     } finally {
       setLoading(false);
     }
@@ -26,12 +32,12 @@ export function useCampaign() {
     await fetchCampaigns();
   };
 
-  const updateCampaign = async (id: number, data: { campaign_name: string; status: number | string }) => {
+  const updateCampaign = async (id: number | string, data: { campaign_name?: string; status?: number | string }) => {
     await campaignService.updateCampaign(id, data);
     await fetchCampaigns();
   };
 
-  const removeCampaign = async (id: number) => {
+  const removeCampaign = async (id: number | string) => {
     await campaignService.deleteCampaign(id);
     await fetchCampaigns();
   };
@@ -39,7 +45,7 @@ export function useCampaign() {
   return {
     campaignList,
     loading,
-    refetch: fetchCampaigns,
+    refetch: fetchCampaigns as (params?: FetchParams) => Promise<void>,
     addCampaign,
     updateCampaign,
     removeCampaign,
