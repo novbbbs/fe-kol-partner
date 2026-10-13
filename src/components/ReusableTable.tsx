@@ -61,14 +61,25 @@ export default function ReusableTable({
   };
 
   return (
-    <div className="w-full space-y-0 overflow-x-hidden relative rounded-none">
+    <div className="w-full space-y-0 overflow-hidden relative rounded-none">
       <style>{`
-        .hide-table-scroll *::-webkit-scrollbar {
+        /* Hilangkan scrollbar untuk Webkit (Chrome, Safari, Edge) */
+        ::-webkit-scrollbar {
           display: none !important;
           width: 0 !important;
           height: 0 !important;
         }
-        .hide-table-scroll * {
+        /* Hilangkan scrollbar untuk Firefox, IE, dan Edge versi lama */
+        * {
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
+        }
+        .hide-table-scroll::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+        .hide-table-scroll {
           -ms-overflow-style: none !important;
           scrollbar-width: none !important;
         }
@@ -109,7 +120,13 @@ export default function ReusableTable({
                         onChange={() => toggleColumn(colKey)}
                         className="rounded-none text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4"
                       />
-                      <span className="capitalize">{colKey.replace('_', ' ')}</span>
+                      <span className="capitalize">
+                        {colKey === 'campaign_start_date' 
+                          ? 'Campaign Start Date' 
+                          : colKey === 'campaign_end_date' 
+                          ? 'Campaign End Date' 
+                          : colKey.replace(/_/g, ' ')}
+                      </span>
                     </label>
                   );
                 })}
@@ -167,17 +184,27 @@ export default function ReusableTable({
       </div>
 
       {/* TAMPILAN DESKTOP */}
-      <div className="hidden md:block w-full border-b border-slate-200 dark:border-[#2e303a] hide-table-scroll rounded-none">
-        <Table className={`rounded-none ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+      <div className="hidden md:block w-full border-b border-slate-200 dark:border-[#2e303a] hide-table-scroll rounded-none overflow-x-auto">
+        <Table className={`rounded-none w-full ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`} style={{ tableLayout: 'fixed' }}>
           <TableHeader>
             <TableRow className={`rounded-none ${isDarkMode ? 'border-t border-b border-[#2e303a] bg-[#16171d]/80 text-white font-bold' : 'border-t border-b border-slate-200 bg-slate-50 text-slate-900 font-bold'}`}>
               {columns.map((col) => {
                 const colKey = col.accessorKey;
                 if (colKey !== 'id' && colKey !== 'actions' && columnVisibility[colKey] === false) return null;
+                 
+                let widthClass = 'px-3 w-auto';
+                if (colKey === 'id') widthClass = 'px-2 w-16 text-center';
+                else if (colKey === 'name') widthClass = 'px-3 w-44';
+                else if (colKey === 'campaign_name') widthClass = 'px-3 w-80';
+                else if (colKey === 'referral_code' || colKey === 'status') widthClass = 'px-3 w-28 text-center';
+                else if (colKey === 'whatsapp' || colKey === 'username') widthClass = 'px-3 w-32';
+                else if (colKey === 'campaign_start_date' || colKey === 'campaign_end_date') widthClass = 'px-3 w-40 text-center';
+                else if (colKey === 'actions') widthClass = 'px-3 w-24 text-center';
+
                 return (
                   <TableHead 
                     key={colKey} 
-                    className={`h-12 px-6 align-middle font-bold tracking-wider text-sm border-r last:border-r-0 rounded-none ${
+                    className={`h-12 align-middle font-bold tracking-wider text-sm border-r last:border-r-0 rounded-none ${widthClass} ${
                       isDarkMode ? 'border-[#2e303a] text-white' : 'border-slate-200 text-slate-900'
                     }`}
                   >
@@ -210,6 +237,15 @@ export default function ReusableTable({
                       const colKey = col.accessorKey;
                       if (colKey !== 'id' && colKey !== 'actions' && columnVisibility[colKey] === false) return null;
 
+                      let widthClass = 'px-3 w-auto truncate';
+                      if (colKey === 'id') widthClass = 'px-2 w-16 text-center';
+                      else if (colKey === 'name') widthClass = 'px-3 w-44 truncate';
+                      else if (colKey === 'campaign_name') widthClass = 'px-3 w-80 truncate';
+                      else if (colKey === 'referral_code' || colKey === 'status') widthClass = 'px-3 w-28 text-center';
+                      else if (colKey === 'whatsapp' || colKey === 'username') widthClass = 'px-3 w-32 truncate';
+                      else if (colKey === 'campaign_start_date' || colKey === 'campaign_end_date') widthClass = 'px-3 w-40 text-center';
+                      else if (colKey === 'actions') widthClass = 'px-3 w-24 text-center';
+
                       const cellContext = {
                         row: { index: absoluteIndex, original: item },
                         getValue: () => item[col.accessorKey],
@@ -218,7 +254,7 @@ export default function ReusableTable({
                       return (
                         <TableCell 
                           key={colKey} 
-                          className={`px-6 py-4 align-middle text-sm border-r last:border-r-0 rounded-none ${
+                          className={`py-4 align-middle text-sm border-r last:border-r-0 rounded-none ${widthClass} ${
                             isDarkMode ? 'border-[#2e303a]' : 'border-slate-100'
                           }`}
                         >

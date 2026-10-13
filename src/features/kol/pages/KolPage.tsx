@@ -631,10 +631,10 @@ export default function KolPage({ isDarkMode = false }: KolPageProps) {
     },
     { 
       accessorKey: 'name', 
-      header: () => <div className="text-left pl-3">Name</div>, 
+      header: () => <div className="text-left justify-start flex w-full">Name</div>, 
       cell: ({ row }: any) => (
-        <div className="text-left pl-3">
-          <span className="font-semibold whitespace-nowrap block">{row.original.name || row.original.nama_kol}</span>
+        <div className="text-left justify-start flex w-full">
+          <span className="font-semibold whitespace-nowrap block text-left">{row.original.name || row.original.nama_kol}</span>
         </div>
       ) 
     },

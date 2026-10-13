@@ -215,7 +215,7 @@ function SearchableSelect({
 
   return (
     <div
-      className="relative w-full text-xs"
+      className="relative w-full text-sm"
       ref={dropdownRef}
     >
       <div
@@ -239,7 +239,7 @@ function SearchableSelect({
         </span>
 
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
+          className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -254,7 +254,7 @@ function SearchableSelect({
           }`}
         >
           <div className="p-2 border-b border-slate-100 dark:border-[#2e303a] flex items-center gap-2 bg-slate-50/50 dark:bg-[#16171d]/50">
-            <Search className="w-3.5 h-3.5 text-slate-400 ml-1" />
+            <Search className="w-4 h-4 text-slate-400 ml-1" />
 
             <input
               type="text"
@@ -263,7 +263,7 @@ function SearchableSelect({
                 setSearchQuery(e.target.value)
               }
               placeholder="Cari..."
-              className="w-full bg-transparent outline-none text-xs placeholder-slate-400 font-medium"
+              className="w-full bg-transparent outline-none text-sm placeholder-slate-400 font-medium"
               autoFocus
             />
           </div>
@@ -296,7 +296,7 @@ function SearchableSelect({
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
-                    className={`px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer transition text-xs ${
+                    className={`px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer transition text-sm ${
                       isPlaceholderItem
                         ? 'normal-case text-slate-400 hover:bg-slate-100 dark:hover:bg-[#262833]'
                         : isSelected
@@ -309,13 +309,13 @@ function SearchableSelect({
                     </span>
 
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 shrink-0 text-white" />
+                      <Check className="w-4 h-4 shrink-0 text-white" />
                     )}
                   </div>
                 );
               })
             ) : (
-              <div className="p-3 text-center text-slate-400 text-xs">
+              <div className="p-3 text-center text-slate-400 text-sm">
                 Tidak ada hasil ditemukan
               </div>
             )}
@@ -693,7 +693,7 @@ export default function FormModal({
                   ? titleEdit
                   : titleCreate}
               </DialogTitle>
-              <DialogDescription className="text-[11px] text-slate-400">
+              <DialogDescription className="text-xs text-slate-400">
                 {isEditMode
                   ? 'Perbarui informasi data yang sudah ada.'
                   : 'Masukkan data baru ke dalam sistem.'}
@@ -716,13 +716,13 @@ export default function FormModal({
             {validationError && (
               <Alert
                 variant="destructive"
-                className="rounded-2xl bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 py-2 px-3"
+                className="rounded-2xl bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 py-2 px-3 text-sm"
               >
-                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                <AlertTitle className="text-xs font-bold">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <AlertTitle className="text-sm font-bold">
                   Peringatan Validasi
                 </AlertTitle>
-                <AlertDescription className="text-[11px] opacity-90">
+                <AlertDescription className="text-sm opacity-90">
                   {validationError}
                 </AlertDescription>
               </Alert>
@@ -741,11 +741,11 @@ export default function FormModal({
             >
               {referralField && (
                 <div className="mb-4 pb-4 border-b border-slate-100 dark:border-[#2e303a] flex flex-col items-center justify-center text-center">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
                     {referralField.label}
                   </span>
-                  <div className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-[#16171d] px-3.5 py-1 rounded-full border border-slate-200 dark:border-[#2e303a]">
-                    <Ticket className="w-3.5 h-3.5 text-emerald-500" />
+                  <div className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-[#16171d] px-3.5 py-1 rounded-full border border-slate-200 dark:border-[#2e303a]">
+                    <Ticket className="w-4 h-4 text-emerald-500" />
                     <span>
                       {referralVal || '---'}
                     </span>
@@ -809,7 +809,7 @@ export default function FormModal({
                             : ''
                         }`}
                       >
-                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
                           {field.label}
                           {field.required && (
                             <span className="text-rose-500">
@@ -884,7 +884,7 @@ export default function FormModal({
                               field.placeholder ||
                               `Masukkan ${field.label}`
                             }
-                            className={`w-full p-2.5 rounded-xl border text-xs outline-none transition resize-none ${
+                            className={`w-full p-2.5 rounded-xl border text-sm outline-none transition resize-none ${
                               isDarkMode
                                 ? 'bg-[#16171d] border-[#2e303a] text-white'
                                 : 'bg-white border-slate-200 text-slate-800'
@@ -924,7 +924,7 @@ export default function FormModal({
                               field.placeholder ||
                               `Masukkan ${field.label}`
                             }
-                            className={`w-full h-10 px-3 rounded-xl border text-xs outline-none transition ${
+                            className={`w-full h-10 px-3 rounded-xl border text-sm outline-none transition ${
                               isDarkMode
                                 ? 'bg-[#16171d] border-[#2e303a] text-white'
                                 : 'bg-white border-slate-200 text-slate-800'
@@ -951,7 +951,7 @@ export default function FormModal({
             <Button
               type="button"
               onClick={onClose}
-              className="rounded-full h-9 px-5 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white cursor-pointer"
+              className="rounded-full h-9 px-5 text-sm font-semibold bg-rose-500 hover:bg-rose-600 text-white cursor-pointer"
             >
               Batal
             </Button>
@@ -959,9 +959,9 @@ export default function FormModal({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-full h-9 px-6 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1.5"
+              className="rounded-full h-9 px-6 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1.5"
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="w-4 h-4" />
               <span>
                 {isSubmitting
                   ? 'Menyimpan...'

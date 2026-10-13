@@ -212,10 +212,10 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
     },
     {
       accessorKey: 'campaign_name',
-      header: () => <div className="text-left pl-3">Campaign Name</div>,
+      header: () => <div className="text-center justify-center flex w-full">Campaign Name</div>,
       cell: ({ row }: any) => (
-        <div className="text-left pl-3">
-          <span className="font-semibold">{row.original?.campaign_name || '-'}</span>
+        <div className="text-center justify-center flex w-full">
+          <span className="font-semibold text-center block">{row.original?.campaign_name || '-'}</span>
         </div>
       )
     },

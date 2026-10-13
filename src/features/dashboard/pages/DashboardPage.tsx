@@ -18,10 +18,7 @@ import {
   DropdownMenuItem 
 } from '../../../components/ui/dropdown-menu';
 
-// ✅ IMPORT API CUSTOM KITA DI SINI
 import api from '../../../lib/api'; 
-// (Catatan: Sesuaikan path impor ini jika lokasi file api.ts Anda berbeda. 
-//  Misalnya jika api.ts ada di 'src/lib/api.ts', naikkan path-nya sesuai struktur folder Anda).
 
 interface DashboardPageProps {
   isDarkMode?: boolean;
@@ -35,11 +32,9 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
 
   const [dashboardData, setDashboardData] = useState<any>(null);
 
-  // Ambil daftar campaign aktif dari database (Hanya murni Event, TANPA Reguler)
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        // ✅ GUNAKAN api DARI FILE CUSTOM KITA, BUKAN axios MENTAH
         const response = await api.get('/campaigns');
         const rawData = Array.isArray(response.data) ? response.data : response.data.data || [];
         
@@ -76,11 +71,9 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
     fetchCampaigns();
   }, []);
 
-  // Ambil data dashboard dari Backend API Laravel
   useEffect(() => {
     const fetchDashboardSummary = async () => {
       try {
-        // ✅ GUNAKAN api DARI FILE CUSTOM KITA, DAN HANYA TULIS ENDPOINTNYA (Base URL sudah diurus api.ts)
         let url = `/dashboard/summary?type=${activeCategory}`;
         
         if (activeCategory === 'event' && selectedCampaign) {
@@ -147,7 +140,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
             <h2 className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
               Dashboard KOL
             </h2>
-            {/* Badge Status Kategori / Nama Event di sebelah judul */}
             <span className="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400 px-2.5 py-1 rounded-md font-semibold">
               {activeCategory === 'event' ? (selectedCampaignObj?.label || 'Event') : 'Reguler'}
             </span>
@@ -155,7 +147,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Tombol Kategori Program (Reguler / Event) */}
           <div className={`p-1.5 rounded-xl border flex items-center gap-1.5 ${
             isDarkMode ? 'bg-[#16171d] border-[#2e303a]' : 'bg-slate-50 border-slate-200'
           }`}>
@@ -171,7 +162,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
               Program Reguler
             </button>
 
-            {/* Tombol Program Event menggunakan DropdownMenu shadcn tanpa asChild */}
             <DropdownMenu>
               <DropdownMenuTrigger 
                 onClick={() => setActiveCategory('event')}
@@ -232,59 +222,67 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
       </div>
 
       <div className="px-4 md:px-6 space-y-6">
-        {/* STATS CARDS */}
+        {/* STATS CARDS - SESUAI LAMPIRAN PERTAMA */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
+          {/* KARTU 1: TOTAL KOL */}
           <Card className={`rounded-2xl border shadow-xs ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-            <CardContent className="py-4 px-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600">
-                  <Users className="w-4 h-4" />
+            <CardContent className="py-5 px-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 shrink-0">
+                  <Users className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total KOL</span>
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total KOL</span>
+                  <h3 className="text-2xl font-bold tracking-tight leading-none mt-0.5">{totalKolCount}</h3>
+                </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold tracking-tight leading-tight">{totalKolCount}</h3>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
+                <span>Influencer aktif</span>
                 <span className="font-bold text-emerald-600">100% Aktif</span>
               </div>
             </CardContent>
           </Card>
 
+          {/* KARTU 2: TOTAL RESERVASI */}
           <Card className={`rounded-2xl border shadow-xs ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-            <CardContent className="py-4 px-4 space-y-2">
+            <CardContent className="py-5 px-5 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600">
-                  <Calendar className="w-4 h-4" />
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600 shrink-0">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Reservasi</span>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <h3 className="text-2xl font-bold tracking-tight leading-none">{totalReservasiCount}</h3>
+                      <span className="text-xs text-slate-400 font-medium">/ 1,850</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="w-16 bg-slate-100 dark:bg-[#2e303a] h-2 rounded-full overflow-hidden">
+                <div className="w-16 bg-slate-100 dark:bg-[#2e303a] h-2 rounded-full overflow-hidden shrink-0">
                   <div className="bg-emerald-600 h-full rounded-full" style={{ width: '76.8%' }} />
                 </div>
               </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block leading-none mb-1">Total Reservasi</span>
-                <h3 className="text-2xl font-bold tracking-tight leading-tight">{totalReservasiCount}</h3>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
-                <span>Status</span>
-                <span className="font-bold text-emerald-600">Aktif</span>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
+                <span>Aktual / Target</span>
               </div>
             </CardContent>
           </Card>
 
+          {/* KARTU 3: TOTAL VISITOR */}
           <Card className={`rounded-2xl border shadow-xs ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-            <CardContent className="py-4 px-4 space-y-2">
+            <CardContent className="py-5 px-5 space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600">
-                  <Eye className="w-4 h-4" />
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 shrink-0">
+                  <Eye className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Visitor</span>
+                <div className="text-right">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Visitor</span>
+                  <h3 className="text-2xl font-bold tracking-tight leading-none mt-0.5">{totalVisitorCount}</h3>
+                </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold tracking-tight leading-tight">{totalVisitorCount}</h3>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-[#2e303a] text-xs text-slate-500">
                 <span>Scan tiket terverifikasi</span>
                 <span className="font-bold text-slate-700 dark:text-slate-300">{totalVisitorCount} Pax</span>
               </div>
