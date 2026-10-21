@@ -43,8 +43,12 @@ export default function ReusableTable({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const totalPages = Math.ceil(data.length / pageSize) || 1;
+  const totalItems = data.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const paginatedData = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(currentPage * pageSize, totalItems);
 
   const toggleColumn = (key: string) => {
     setColumnVisibility((prev) => ({
@@ -63,13 +67,11 @@ export default function ReusableTable({
   return (
     <div className="w-full space-y-0 overflow-hidden relative rounded-none">
       <style>{`
-        /* Hilangkan scrollbar untuk Webkit (Chrome, Safari, Edge) */
         ::-webkit-scrollbar {
           display: none !important;
           width: 0 !important;
           height: 0 !important;
         }
-        /* Hilangkan scrollbar untuk Firefox, IE, dan Edge versi lama */
         * {
           -ms-overflow-style: none !important;
           scrollbar-width: none !important;
@@ -85,11 +87,11 @@ export default function ReusableTable({
         }
       `}</style>
 
-      {/* Toolbar Atas */}
-      <div className={`px-4 py-3 sm:px-6 sm:py-4 flex flex-row items-center justify-between gap-2 border-t border-b text-sm rounded-none ${
+      {/* Toolbar Atas (Pagination & Kontrol) */}
+      <div className={`px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-b text-sm rounded-none ${
         isDarkMode ? 'border-[#2e303a] bg-[#1f2028] text-slate-300' : 'border-slate-100 bg-white text-slate-600'
       }`}>
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
           {/* Tombol Kolom */}
           <div className="hidden sm:block relative" ref={dropdownRef}>
             <Button
@@ -120,11 +122,11 @@ export default function ReusableTable({
                         onChange={() => toggleColumn(colKey)}
                         className="rounded-none text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4"
                       />
-                      <span className="capitalize">
+                      <span>
                         {colKey === 'campaign_start_date' 
-                          ? 'Campaign Start Date' 
+                          ? 'Mulai Campaign' 
                           : colKey === 'campaign_end_date' 
-                          ? 'Campaign End Date' 
+                          ? 'Selesai Campaign' 
                           : colKey.replace(/_/g, ' ')}
                       </span>
                     </label>
@@ -134,10 +136,9 @@ export default function ReusableTable({
             )}
           </div>
 
-          {/* Rows per page selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 hidden sm:inline text-sm">Rows per page</span>
-            <span className="text-slate-400 sm:hidden text-sm">Rows</span>
+          {/* Rows per page */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-slate-400 text-sm">Rows</span>
             <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
@@ -150,12 +151,17 @@ export default function ReusableTable({
               ))}
             </select>
           </div>
-        </div>
 
-        {/* Indikator Page & Navigasi */}
-        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Page X of Y */}
           <span className="font-bold text-slate-800 dark:text-white tracking-wide whitespace-nowrap text-sm">
             Page {currentPage} of {totalPages}
+          </span>
+        </div>
+
+        {/* Bagian Kanan: Rentang Data & Navigasi Panah */}
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+          <span className="text-slate-600 dark:text-slate-300 text-sm">
+            {startIndex}-{endIndex} of {totalItems}
           </span>
 
           <div className="flex items-center gap-1">
@@ -183,29 +189,27 @@ export default function ReusableTable({
         </div>
       </div>
 
-      {/* TAMPILAN DESKTOP */}
-      <div className="hidden md:block w-full border-b border-slate-200 dark:border-[#2e303a] hide-table-scroll rounded-none overflow-x-auto">
-        <Table className={`rounded-none w-full ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`} style={{ tableLayout: 'fixed' }}>
+      {/* TAMPILAN TABEL UTAMA (Muncul di semua ukuran layar untuk Campaign, atau Desktop untuk KOL) */}
+      <div className={`w-full border-b border-slate-200 dark:border-[#2e303a] overflow-x-auto rounded-none ${renderCardMobile ? 'hidden md:block' : 'block'}`}>
+        <Table className={`rounded-none w-full ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
           <TableHeader>
             <TableRow className={`rounded-none ${isDarkMode ? 'border-t border-b border-[#2e303a] bg-[#16171d]/80 text-white font-bold' : 'border-t border-b border-slate-200 bg-slate-50 text-slate-900 font-bold'}`}>
               {columns.map((col) => {
                 const colKey = col.accessorKey;
                 if (colKey !== 'id' && colKey !== 'actions' && columnVisibility[colKey] === false) return null;
                  
-                let widthClass = 'px-3 w-auto';
-                if (colKey === 'id') widthClass = 'px-2 w-16 text-center';
-                else if (colKey === 'name') widthClass = 'px-3 w-44';
-                else if (colKey === 'campaign_name') widthClass = 'px-3 w-80';
-                else if (colKey === 'referral_code' || colKey === 'status') widthClass = 'px-3 w-28 text-center';
-                else if (colKey === 'whatsapp' || colKey === 'username') widthClass = 'px-3 w-32';
-                else if (colKey === 'campaign_start_date' || colKey === 'campaign_end_date') widthClass = 'px-3 w-40 text-center';
-                else if (colKey === 'actions') widthClass = 'px-3 w-24 text-center';
+                let alignClass = 'text-left';
+                if (colKey === 'id' || colKey === 'referral_code' || colKey === 'status' || colKey === 'campaign_start_date' || colKey === 'campaign_end_date' || colKey === 'actions') {
+                  alignClass = 'text-center';
+                } else if (colKey === 'name' || colKey === 'campaign_name') {
+                  alignClass = 'text-center';
+                }
 
                 return (
                   <TableHead 
                     key={colKey} 
-                    className={`h-12 align-middle font-bold tracking-wider text-sm border-r last:border-r-0 rounded-none ${widthClass} ${
-                      isDarkMode ? 'border-[#2e303a] text-white' : 'border-slate-200 text-slate-900'
+                    className={`h-11 px-4 align-middle font-bold tracking-wider text-xs border-r last:border-r-0 rounded-none whitespace-nowrap ${alignClass} ${
+                      isDarkMode ? 'border-[#2e303a] text-white' : 'border-slate-200 text-slate-700'
                     }`}
                   >
                     {renderHeader(col.header)}
@@ -217,7 +221,7 @@ export default function ReusableTable({
           <TableBody className={`rounded-none ${isDarkMode ? 'divide-y divide-[#2e303a]' : 'divide-y divide-slate-100'}`}>
             {paginatedData.length === 0 ? (
               <TableRow className="rounded-none">
-                <TableCell colSpan={columns.length} className="text-center py-12 text-slate-400 rounded-none text-sm">
+                <TableCell colSpan={columns.length} className="text-center py-10 text-slate-400 rounded-none text-sm">
                   Tidak ada data ditemukan.
                 </TableCell>
               </TableRow>
@@ -237,14 +241,12 @@ export default function ReusableTable({
                       const colKey = col.accessorKey;
                       if (colKey !== 'id' && colKey !== 'actions' && columnVisibility[colKey] === false) return null;
 
-                      let widthClass = 'px-3 w-auto truncate';
-                      if (colKey === 'id') widthClass = 'px-2 w-16 text-center';
-                      else if (colKey === 'name') widthClass = 'px-3 w-44 truncate';
-                      else if (colKey === 'campaign_name') widthClass = 'px-3 w-80 truncate';
-                      else if (colKey === 'referral_code' || colKey === 'status') widthClass = 'px-3 w-28 text-center';
-                      else if (colKey === 'whatsapp' || colKey === 'username') widthClass = 'px-3 w-32 truncate';
-                      else if (colKey === 'campaign_start_date' || colKey === 'campaign_end_date') widthClass = 'px-3 w-40 text-center';
-                      else if (colKey === 'actions') widthClass = 'px-3 w-24 text-center';
+                      let alignClass = 'text-left';
+                      if (colKey === 'id' || colKey === 'referral_code' || colKey === 'status' || colKey === 'campaign_start_date' || colKey === 'campaign_end_date' || colKey === 'actions') {
+                        alignClass = 'text-center';
+                      } else if (colKey === 'name' || colKey === 'campaign_name') {
+                        alignClass = 'text-center';
+                      }
 
                       const cellContext = {
                         row: { index: absoluteIndex, original: item },
@@ -254,7 +256,7 @@ export default function ReusableTable({
                       return (
                         <TableCell 
                           key={colKey} 
-                          className={`py-4 align-middle text-sm border-r last:border-r-0 rounded-none ${widthClass} ${
+                          className={`py-3 px-4 align-middle text-sm border-r last:border-r-0 rounded-none whitespace-nowrap ${alignClass} ${
                             isDarkMode ? 'border-[#2e303a]' : 'border-slate-100'
                           }`}
                         >
@@ -270,17 +272,19 @@ export default function ReusableTable({
         </Table>
       </div>
 
-      {/* TAMPILAN MOBILE (CARD VIEW) */}
-      <div className="block md:hidden space-y-3 px-3 pb-3 pt-3 rounded-none">
-        {paginatedData.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-sm">Tidak ada data ditemukan.</div>
-        ) : (
-          paginatedData.map((item, index) => {
-            const absoluteIndex = (currentPage - 1) * pageSize + index + 1;
-            return renderCardMobile ? renderCardMobile(item, absoluteIndex) : null;
-          })
-        )}
-      </div>
+      {/* TAMPILAN MOBILE KARTU (Hanya aktif jika renderCardMobile disediakan, seperti di halaman KOL) */}
+      {renderCardMobile && (
+        <div className="block md:hidden space-y-3 px-3 pb-3 pt-3 rounded-none">
+          {paginatedData.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 text-sm">Tidak ada data ditemukan.</div>
+          ) : (
+            paginatedData.map((item, index) => {
+              const absoluteIndex = (currentPage - 1) * pageSize + index + 1;
+              return renderCardMobile(item, absoluteIndex);
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

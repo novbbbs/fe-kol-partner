@@ -13,9 +13,9 @@ interface SidebarProps {
   isDarkMode: boolean;
   isSidebarOpen: boolean;
   onCloseMobile?: () => void;
-  // Tambahan Props untuk Profil dan Logout
   user?: any;
   onLogout?: () => void;
+  isModalOpen?: boolean;
 }
 
 export default function Sidebar({ 
@@ -25,7 +25,8 @@ export default function Sidebar({
   isSidebarOpen, 
   onCloseMobile,
   user,
-  onLogout
+  onLogout,
+  isModalOpen = false
 }: SidebarProps) {
   const [isMasterOpen, setIsMasterOpen] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
@@ -76,7 +77,7 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Backdrop Overlay khusus Mobile dengan z-980 */}
+      {/* Backdrop Overlay khusus Mobile */}
       {isSidebarOpen && (
         <div 
           onClick={onCloseMobile}
@@ -84,11 +85,14 @@ export default function Sidebar({
         />
       )}
 
-      {/* Sidebar Drawer dengan z-999 */}
+      {/* Sidebar Drawer + Efek Blur jika isModalOpen bernilai true */}
+      {/* Diubah dari w-64 menjadi w-60 agar lebih kekiri dan ramping */}
       <aside className={`fixed inset-y-0 left-0 z-999 flex flex-col transition-all duration-300 border-r transform ${
-        isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'
+        isSidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full md:translate-x-0 md:w-20'
       } ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a]' : 'bg-white border-slate-200'
+      } ${
+        isModalOpen ? 'blur-sm brightness-90 pointer-events-none select-none' : ''
       }`}>
         {/* Logo Saloka */}
         <div className="p-4 flex items-center justify-center border-b border-slate-100 dark:border-[#2e303a] shrink-0">
@@ -235,8 +239,8 @@ export default function Sidebar({
 
       </aside>
 
-      {/* Pop-up Menu Melayang DI LUAR SIDEBAR dengan z-1000 */}
-      {!isSidebarOpen && showPopup && (
+      {/* Pop-up Menu Melayang DI LUAR SIDEBAR */}
+      {!isSidebarOpen && showPopup && !isModalOpen && (
         <div 
           ref={popupRef}
           style={{ 

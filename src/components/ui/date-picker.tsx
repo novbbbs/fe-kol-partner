@@ -19,7 +19,7 @@ interface DatePickerProps {
 export function DatePicker({
   value,
   onChange,
-  placeholder = 'Pilih tanggal',
+  placeholder = 'DD MM YYYY', // 1. Ubah default placeholder di sini
   isDarkMode = false,
 }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(() => {
@@ -47,7 +47,7 @@ export function DatePicker({
     setDate(selectedDate);
     if (onChange) {
       const formatted = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
-      onChange(formatted);
+      onChange(formatted); // Tetap kirim format yyyy-MM-dd ke database/backend
     }
   };
 
@@ -63,10 +63,10 @@ export function DatePicker({
         }`}
       >
         <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
-        {date ? format(date, 'yyyy-MM-dd') : <span>{placeholder}</span>}
+        {/* 2. Ubah format tampilannya menjadi dd-MM-yyyy atau dd MM yyyy */}
+        {date ? format(date, 'dd-MM-yyyy') : <span>{placeholder}</span>}
       </PopoverTrigger>
       
-      {/* Menggunakan z-50 standar Tailwind untuk menghilangkan warning z-[60] */}
       <PopoverContent
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}

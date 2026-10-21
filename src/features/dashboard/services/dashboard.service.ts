@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from '../../../lib/api'; // Sesuaikan jalur relatif foldernya ke file api.ts
 
 // Anda bisa membuat interface tipe data jika diperlukan
 export interface DashboardParams {
@@ -9,13 +9,14 @@ export interface DashboardParams {
 export const dashboardService = {
   // Fungsi untuk mengambil data ringkasan dashboard
   getDashboardSummary: async (params: DashboardParams) => {
-    let url = `http://127.0.0.1:8000/api/dashboard/summary?type=${params.type}`;
+    // Cukup gunakan endpoint relatif, baseURL akan otomatis menyesuaikan IP/host
+    let url = `/dashboard/summary?type=${params.type}`;
     
     if (params.type === 'event' && params.campaign) {
       url += `&campaign=${encodeURIComponent(String(params.campaign))}`;
     }
 
-    const response = await axios.get(url);
+    const response = await api.get(url);
     return response.data;
   }
 };

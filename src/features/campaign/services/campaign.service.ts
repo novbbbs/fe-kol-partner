@@ -1,17 +1,5 @@
-import axios from 'axios';
+import api from '../../../lib/api'; // Sesuaikan jalur relatif foldernya ke file api.ts
 import type { CampaignItem } from '../types/campaign.type';
-
-const API_URL = 'http://127.0.0.1:8000/api/campaigns';
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
-  return {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : '',
-      Accept: 'application/json',
-    },
-  };
-};
 
 interface FilterParams {
   search?: string;
@@ -26,22 +14,22 @@ export const campaignService = {
       queryParams.append('status', params.status);
     }
 
-    const url = `${API_URL}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await axios.get(url, getAuthHeaders());
+    // Cukup panggil '/campaigns' karena baseURL sudah diatur di api.ts
+    const response = await api.get('/campaigns', { params: queryParams });
     return response.data.data || response.data;
   },
 
   async createCampaign(data: { campaign_name: string; status?: number | string }): Promise<CampaignItem> {
-    const response = await axios.post(API_URL, data, getAuthHeaders());
+    const response = await api.post('/campaigns', data);
     return response.data.data || response.data;
   },
 
   async updateCampaign(id: number | string, data: { campaign_name?: string; status?: number | string }): Promise<CampaignItem> {
-    const response = await axios.put(`${API_URL}/${id}`, data, getAuthHeaders());
+    const response = await api.put(`/campaigns/${id}`, data);
     return response.data.data || response.data;
   },
 
   async deleteCampaign(id: number | string): Promise<void> {
-    await axios.delete(`${API_URL}/${id}`, getAuthHeaders());
+    await api.delete(`/campaigns/${id}`);
   },
 };

@@ -1,18 +1,5 @@
-import axios from 'axios';
+import api from '../../../lib/api'; // Sesuaikan jalur relatif foldernya dari file kol.service.ts ke api.ts
 import type { Kol } from '../types/kol.type';
-
-const API_URL = 'http://127.0.0.1:8000/api/kols';
-
-// Helper untuk mengambil token autentikasi dengan kunci yang sinkron ('auth_token')
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
-  return {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : '',
-      Accept: 'application/json',
-    },
-  };
-};
 
 // Interface untuk parameter pencarian & filter backend
 interface FilterParams {
@@ -30,22 +17,22 @@ export const kolService = {
     if (params?.startDate) queryParams.append('start_date', params.startDate);
     if (params?.endDate) queryParams.append('end_date', params.endDate);
 
-    const url = `${API_URL}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await axios.get(url, getAuthHeaders());
+    // Cukup panggil '/kols' karena baseURL sudah diatur di api.ts
+    const response = await api.get('/kols', { params: queryParams });
     return response.data.data || response.data;
   },
 
   async createKol(data: Partial<Kol>): Promise<Kol> {
-    const response = await axios.post(API_URL, data, getAuthHeaders());
+    const response = await api.post('/kols', data);
     return response.data.data || response.data;
   },
 
   async updateKol(id: number | string, data: Partial<Kol>): Promise<Kol> {
-    const response = await axios.put(`${API_URL}/${id}`, data, getAuthHeaders());
+    const response = await api.put(`/kols/${id}`, data);
     return response.data.data || response.data;
   },
 
   async deleteKol(id: number | string): Promise<void> {
-    await axios.delete(`${API_URL}/${id}`, getAuthHeaders());
+    await api.delete(`/kols/${id}`);
   },
 };

@@ -5,6 +5,7 @@ import DashboardPage from './features/dashboard/pages/DashboardPage';
 import KolPage from './features/kol/pages/KolPage';
 import CampaignPage from './features/campaign/pages/CampaignPage';
 import { TooltipProvider } from './components/ui/tooltip';
+import { Toaster } from './components/ui/sonner';
 
 // Import disesuaikan ke folder features/Login (huruf L besar)
 import LoginPage from './features/Login/pages/LoginPage';
@@ -17,18 +18,19 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
 
+  // Status global untuk mendeteksi apakah modal form sedang terbuka
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Periksa sesi user saat aplikasi pertama kali dimuat
   useEffect(() => {
     const initAuth = async () => {
       const token = authService.getToken();
       if (token) {
-        // Ambil data user dari cache lokal terlebih dahulu agar instan
         const localUser = authService.getUser();
         if (localUser) {
           setUser(localUser);
         }
         
-        // Verifikasi dan sinkronkan token dengan backend
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
@@ -49,6 +51,21 @@ export default function App() {
     setUser(null);
   };
 
+  // Konfigurasi style toast agar menyerupai desain contoh kustom
+  const customToastOptions = {
+    position: 'top-right' as const,
+    richColors: true,
+    closeButton: true,
+    toastOptions: {
+      classNames: {
+        toast: 'bg-white dark:bg-[#1f2028] text-slate-900 dark:text-white border border-slate-200 dark:border-[#2e303a] shadow-2xl rounded-2xl p-4 overflow-hidden',
+        title: 'font-bold text-sm text-slate-900 dark:text-white',
+        description: 'text-xs text-slate-500 dark:text-slate-400 mt-0.5',
+        closeButton: 'text-slate-400 hover:text-slate-700 dark:hover:text-white border-0 bg-transparent',
+      },
+    },
+  };
+
   // Tampilkan loading sebentar saat memeriksa sesi
   if (loading) {
     return (
@@ -60,28 +77,41 @@ export default function App() {
 
   // JIKA BELUM LOGIN, TAMPILKAN HALAMAN LOGIN
   if (!user) {
-    return <LoginPage />;
+    return (
+      <>
+        <Toaster {...customToastOptions} />
+        <LoginPage />
+      </>
+    );
   }
 
   return (
     <TooltipProvider>
-      <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-[#121318] text-white' : 'bg-slate-50 text-slate-800'}`}>
-        
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isDarkMode={isDarkMode}
-          isSidebarOpen={isSidebarOpen}
-          onCloseMobile={() => setIsSidebarOpen(false)}
-          user={user} // Data user dikirim ke Sidebar
-          onLogout={handleLogout} // Fungsi logout dikirim ke Sidebar
-        />
+      {/* Pasang Toaster di root aplikasi */}
+      <Toaster {...customToastOptions} />
 
+      <div className={`min-h-screen flex overflow-x-hidden transition-colors duration-300 ${isDarkMode ? 'dark bg-[#121318] text-white' : 'bg-slate-50 text-slate-800'}`}>
+        
+        {/* SIDEBAR */}
+        <div className="fixed inset-y-0 left-0 z-40 flex">
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isDarkMode={isDarkMode}
+            isSidebarOpen={isSidebarOpen}
+            onCloseMobile={() => setIsSidebarOpen(false)}
+            user={user}
+            onLogout={handleLogout}
+            isModalOpen={isModalOpen} 
+          />
+        </div>
+
+        {/* Konten Utama: Margin kiri disesuaikan dengan w-60 sidebar */}
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ml-0 ${
-          isSidebarOpen ? 'md:ml-64' : 'md:ml-20'
+          isSidebarOpen ? 'md:ml-60' : 'md:ml-20'
         }`}>
           
-          <header className={`sticky top-0 z-50 border-b px-6 py-4 flex items-center justify-between backdrop-blur-md ${
+          <header className={`sticky top-0 z-30 border-b px-6 py-4 flex items-center justify-between backdrop-blur-md ${
             isDarkMode ? 'bg-[#1f2028]/90 border-[#2e303a]' : 'bg-white/90 border-slate-200'
           }`}>
             <div className="flex items-center gap-4">
@@ -115,7 +145,7 @@ export default function App() {
 
           <main className={`flex-1 ${activeTab === 'dashboard' ? 'p-0' : 'pt-3 px-6 pb-6 md:px-8 md:pb-8'}`}>
             {activeTab === 'dashboard' && <DashboardPage isDarkMode={isDarkMode} />}
-            {activeTab === 'kol' && <KolPage isDarkMode={isDarkMode} />}
+            {activeTab === 'kol' && <KolPage isDarkMode={isDarkMode} isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} />}
             {activeTab === 'campaign' && <CampaignPage isDarkMode={isDarkMode} />}
           </main>
         </div>

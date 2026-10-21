@@ -220,7 +220,7 @@ function SearchableSelect({
     >
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-10 px-3 rounded-xl border flex items-center justify-between cursor-pointer transition uppercase ${
+        className={`w-full h-11 px-3.5 rounded-lg border flex items-center justify-between cursor-pointer transition uppercase ${
           isDarkMode
             ? 'bg-[#16171d] border-[#2e303a] text-white'
             : 'bg-white border-slate-200 text-slate-800 shadow-2xs'
@@ -229,8 +229,8 @@ function SearchableSelect({
         <span
           className={
             selectedOption
-              ? 'uppercase truncate'
-              : 'text-slate-400 truncate normal-case'
+              ? 'uppercase truncate font-medium'
+              : 'text-slate-400 truncate normal-case font-medium'
           }
         >
           {selectedOption
@@ -247,7 +247,7 @@ function SearchableSelect({
 
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 top-full mt-1.5 rounded-xl border shadow-2xl z-50 overflow-hidden backdrop-blur-md ${
+          className={`absolute left-0 right-0 top-full mt-1.5 rounded-lg border shadow-xl z-50 overflow-hidden backdrop-blur-md ${
             isDarkMode
               ? 'bg-[#1f2028] border-[#2e303a] text-white'
               : 'bg-white border-slate-200 text-slate-800'
@@ -268,7 +268,7 @@ function SearchableSelect({
             />
           </div>
 
-          <div className="max-h-44 overflow-y-auto p-1 space-y-0.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+          <div className="max-h-48 overflow-y-auto p-1 space-y-0.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt, idx) => {
                 const isSelected =
@@ -296,11 +296,11 @@ function SearchableSelect({
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
-                    className={`px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer transition text-sm ${
+                    className={`px-3.5 py-2.5 rounded-md flex items-center justify-between cursor-pointer transition text-sm ${
                       isPlaceholderItem
                         ? 'normal-case text-slate-400 hover:bg-slate-100 dark:hover:bg-[#262833]'
                         : isSelected
-                        ? 'bg-emerald-500 text-white font-semibold shadow-xs uppercase'
+                        ? 'bg-emerald-600 text-white font-semibold uppercase'
                         : 'uppercase hover:bg-slate-100 dark:hover:bg-[#262833]'
                     }`}
                   >
@@ -666,34 +666,34 @@ export default function FormModal({
     >
       <DialogContent
         style={{
-          width: '92vw',
+          width: '94vw',
           maxWidth: isCampaignForm
-            ? '520px'
-            : '920px',
+            ? '540px'
+            : '980px',
           backgroundColor:
             isDarkMode
               ? '#1f2028'
               : '#ffffff',
         }}
-        className={`rounded-[28px] border-0 p-0 shadow-2xl flex flex-col max-h-[90vh] sm:max-h-none overflow-visible ${
+        className={`rounded-xl border-0 p-0 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-none overflow-visible ${
           isDarkMode
             ? 'dark bg-[#1f2028] text-white'
             : 'bg-white text-slate-800'
         }`}
       >
-        <div className="p-4 px-6 flex items-center justify-between border-b border-slate-100 dark:border-[#2e303a] shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-bold">
-              <Plus className="w-4 h-4" />
+        <div className="p-5 px-6 flex items-center justify-between border-b border-slate-200 dark:border-[#2e303a] shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-lg bg-emerald-600/10 flex items-center justify-center text-emerald-600 font-bold border border-emerald-600/20">
+              <Plus className="w-5 h-5" />
             </div>
 
-            <DialogHeader className="space-y-0 text-left">
-              <DialogTitle className="text-sm font-bold tracking-tight">
+            <DialogHeader className="space-y-0.5 text-left">
+              <DialogTitle className="text-base font-bold tracking-tight">
                 {isEditMode
                   ? titleEdit
                   : titleCreate}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
                 {isEditMode
                   ? 'Perbarui informasi data yang sudah ada.'
                   : 'Masukkan data baru ke dalam sistem.'}
@@ -709,14 +709,14 @@ export default function FormModal({
           <div
             className={`${
               isCampaignForm
-                ? 'p-5 px-6'
-                : 'p-4 px-6 space-y-3'
-            } max-h-[60vh] sm:max-h-none overflow-y-auto sm:overflow-visible flex-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full`}
+                ? 'p-6'
+                : 'p-6 space-y-4'
+            } max-h-[65vh] sm:max-h-none overflow-y-auto sm:overflow-visible flex-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700`}
           >
             {validationError && (
               <Alert
                 variant="destructive"
-                className="rounded-2xl bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 py-2 px-3 text-sm"
+                className="rounded-lg bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 py-3 px-4 text-sm"
               >
                 <AlertCircle className="w-4 h-4 text-rose-600" />
                 <AlertTitle className="text-sm font-bold">
@@ -731,20 +731,20 @@ export default function FormModal({
             <div
               className={`${
                 isCampaignForm
-                  ? 'px-4 py-4 rounded-2xl'
-                  : 'px-5 py-5 rounded-2xl'
+                  ? 'px-5 py-5 rounded-lg'
+                  : 'px-6 py-6 rounded-lg'
               } border overflow-visible ${
                 isDarkMode
-                  ? 'bg-[#16171d]/40 border-[#2e303a]'
-                  : 'bg-white border-blue-200/80 shadow-2xs'
+                  ? 'bg-[#16171d]/60 border-[#2e303a]'
+                  : 'bg-white border-slate-200 shadow-sm'
               }`}
             >
               {referralField && (
-                <div className="mb-4 pb-4 border-b border-slate-100 dark:border-[#2e303a] flex flex-col items-center justify-center text-center">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                <div className="mb-5 pb-5 border-b border-slate-200 dark:border-[#2e303a] flex flex-col items-center justify-center text-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                     {referralField.label}
                   </span>
-                  <div className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-[#16171d] px-3.5 py-1 rounded-full border border-slate-200 dark:border-[#2e303a]">
+                  <div className="inline-flex items-center gap-2 font-mono text-base font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-[#16171d] px-4 py-1.5 rounded-lg border border-slate-200 dark:border-[#2e303a]">
                     <Ticket className="w-4 h-4 text-emerald-500" />
                     <span>
                       {referralVal || '---'}
@@ -756,8 +756,8 @@ export default function FormModal({
               <div
                 className={`grid ${
                   isCampaignForm
-                    ? 'grid-cols-1 gap-y-2'
-                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4'
+                    ? 'grid-cols-1 gap-y-3'
+                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-5'
                 } overflow-visible`}
               >
                 {otherFields.map(
@@ -809,10 +809,10 @@ export default function FormModal({
                             : ''
                         }`}
                       >
-                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
                           {field.label}
                           {field.required && (
-                            <span className="text-rose-500">
+                            <span className="text-rose-500 ml-0.5">
                               *
                             </span>
                           )}
@@ -834,7 +834,7 @@ export default function FormModal({
                             }
                             placeholder={
                               field.placeholder ||
-                              `Pilih ${field.label.toLowerCase()}`
+                              'DD MM YYYY'
                             }
                             isDarkMode={
                               isDarkMode
@@ -865,7 +865,7 @@ export default function FormModal({
                           />
                         ) : isTextarea ? (
                           <textarea
-                            rows={2}
+                            rows={3}
                             required={
                               field.required
                             }
@@ -884,7 +884,7 @@ export default function FormModal({
                               field.placeholder ||
                               `Masukkan ${field.label}`
                             }
-                            className={`w-full p-2.5 rounded-xl border text-sm outline-none transition resize-none ${
+                            className={`w-full p-3 rounded-lg border text-sm outline-none transition resize-none font-medium ${
                               isDarkMode
                                 ? 'bg-[#16171d] border-[#2e303a] text-white'
                                 : 'bg-white border-slate-200 text-slate-800'
@@ -924,7 +924,7 @@ export default function FormModal({
                               field.placeholder ||
                               `Masukkan ${field.label}`
                             }
-                            className={`w-full h-10 px-3 rounded-xl border text-sm outline-none transition ${
+                            className={`w-full h-11 px-3.5 rounded-lg border text-sm outline-none transition font-medium ${
                               isDarkMode
                                 ? 'bg-[#16171d] border-[#2e303a] text-white'
                                 : 'bg-white border-slate-200 text-slate-800'
@@ -946,12 +946,12 @@ export default function FormModal({
                   ? '#1f2028'
                   : '#ffffff',
             }}
-            className="p-3.5 px-6 border-t border-slate-100 dark:border-[#2e303a] flex items-center justify-end gap-2.5 shrink-0 rounded-b-[28px]"
+            className="p-4 px-6 border-t border-slate-200 dark:border-[#2e303a] flex items-center justify-end gap-3 shrink-0 rounded-b-xl"
           >
             <Button
               type="button"
               onClick={onClose}
-              className="rounded-full h-9 px-5 text-sm font-semibold bg-rose-500 hover:bg-rose-600 text-white cursor-pointer"
+              className="rounded-lg h-10 px-6 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
             >
               Batal
             </Button>
@@ -959,7 +959,7 @@ export default function FormModal({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-full h-9 px-6 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1.5"
+              className="rounded-lg h-10 px-7 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
               <span>
