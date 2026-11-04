@@ -1,4 +1,4 @@
-import api from '../../../lib/api'; // Sesuaikan jalur relatif foldernya dari file kol.service.ts ke api.ts
+import api from '../../../lib/api'; 
 import type { Kol } from '../types/kol.type';
 
 // Interface untuk parameter pencarian & filter backend
@@ -13,11 +13,11 @@ export const kolService = {
   async getAllKols(params?: FilterParams): Promise<Kol[]> {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
-    if (params?.status && params.status !== 'Semua') queryParams.append('status', params.status);
+    if (params?.status && params.status !== 'Semua' && params.status !== 'Semua Status') queryParams.append('status', params.status);
     if (params?.startDate) queryParams.append('start_date', params.startDate);
     if (params?.endDate) queryParams.append('end_date', params.endDate);
 
-    // Cukup panggil '/kols' karena baseURL sudah diatur di api.ts
+    // Mengambil data dari endpoint '/kols'
     const response = await api.get('/kols', { params: queryParams });
     return response.data.data || response.data;
   },
@@ -34,5 +34,17 @@ export const kolService = {
 
   async deleteKol(id: number | string): Promise<void> {
     await api.delete(`/kols/${id}`);
+  },
+
+  // Fungsi baru untuk mengecek ketersediaan data export ke backend
+  async checkExportData(params?: FilterParams): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.status && params.status !== 'Semua' && params.status !== 'Semua Status') queryParams.append('status', params.status);
+    if (params?.startDate) queryParams.append('start_date', params.startDate);
+    if (params?.endDate) queryParams.append('end_date', params.endDate);
+
+    const response = await api.get('/kols/check-export', { params: queryParams });
+    return response.data;
   },
 };

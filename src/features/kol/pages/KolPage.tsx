@@ -7,22 +7,16 @@ import Swal from 'sweetalert2';
 
 import ReusableTable from '../../../components/ReusableTable';
 import FilterDropdown from '../../../components/FilterDropdown';
-import { kolApi, campaignApi } from '../../../components/apiService';
+import { PageHeader } from '../../../components/ui/PageHeader'; 
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'; 
+import { kolService } from '../services/kol.service';
+import { campaignService } from '../../campaign/services/campaign.service';
 import { Switch } from '../../../components/ui/switch';
 import { 
   Card, 
   CardContent, 
   CardFooter 
 } from '../../../components/ui/card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from '../../../components/ui/alert-dialog';
 import { Button } from '../../../components/ui/button';
 import { useKol } from '../hooks/useKol';
 import type { Kol } from '../types/kol.type';
@@ -42,7 +36,7 @@ export default function KolPage({
   isModalOpen: externalIsModalOpen, 
   setIsModalOpen: externalSetIsModalOpen 
 }: KolPageProps) {
-  const { kols, refetch, addKol } = useKol();
+  const { kols, refetch } = useKol();
 
   const [inputValue, setInputValue] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -59,6 +53,22 @@ export default function KolPage({
   const [deleteItem, setDeleteItem] = useState<Kol | null>(null);
   const [statusItem, setStatusItem] = useState<Kol | null>(null);
   const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false); 
+
+  // State untuk melacak kolom mana saja yang aktif/dicentang (sinkron dengan ReusableTable)
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
+    referral_code: true,
+    name: true,
+    username: true,
+    whatsapp: true,
+    city_name: true,
+    province_name: true,
+    type: true,
+    campaign_start_date: true,
+    campaign_end_date: true,
+    status: true,
+  });
 
   const [provinceOptions, setProvinceOptions] = useState<{ label: string; value: string | number }[]>([
     { label: 'Memuat provinsi...', value: '' }
@@ -145,8 +155,8 @@ export default function KolPage({
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const response = await campaignApi.getAll();
-        const rawData = Array.isArray(response) ? response : response.data || [];
+        const response = await campaignService.getAllCampaigns();
+        const rawData = Array.isArray(response) ? response : (response as any)?.data || [];
         const activeCampaigns = rawData.filter((item: any) => {
           const statusStr = String(item.status || '').toLowerCase().trim();
           return item.status === 1 || item.status === '1' || statusStr === 'active' || statusStr === 'aktif';
@@ -176,13 +186,6 @@ export default function KolPage({
 
   const filteredData = kols;
 
-  const generateReferralCode = () => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let result = '';
-    for (let i = 0; i < 3; i++) result += letters.charAt(Math.floor(Math.random() * letters.length));
-    return `${result}${Math.floor(10000 + Math.random() * 90000)}`;
-  };
-
   const handleToggleStatusKol = (item: Kol) => setStatusItem(item);
 
   const handleConfirmToggleStatus = async () => {
@@ -193,32 +196,17 @@ export default function KolPage({
     const rawStatus = statusItem.status;
     const isCurrentlyActive = rawStatus === 1 || rawStatus === '1' || String(rawStatus).toLowerCase() === 'active' || String(rawStatus).toLowerCase() === 'aktif';
     const newStatusValue = isCurrentlyActive ? 0 : 1;
-    const kolName = statusItem.name || statusItem.nama_kol;
 
     try {
-      const payload = {
-        name: kolName,
-        nama_kol: kolName,
-        username: statusItem.username || '',
-        whatsapp: String(statusItem.whatsapp || '').replace(/\D/g, ''),
-        province_name: statusItem.province_name || statusItem.provinsi || '',
-        provinsi: statusItem.province_name || statusItem.provinsi || '',
-        city_name: statusItem.city_name || statusItem.kota_asal || '',
-        kota_asal: statusItem.city_name || statusItem.kota_asal || '',
-        type: statusItem.type || statusItem.tipe_kol || 'Reguler',
-        campaign_start_date: statusItem.campaign_start_date ? String(statusItem.campaign_start_date).split('T')[0] : null,
-        campaign_end_date: statusItem.campaign_end_date ? String(statusItem.campaign_end_date).split('T')[0] : null,
-        referral_code: statusItem.referral_code || statusItem.kode_referral,
-        status: newStatusValue
-      };
-
-      await kolApi.update(targetId, payload);
+      const response = await kolService.updateKol(targetId as string | number, { status: newStatusValue });
       await refetch({ search: debouncedSearch, status: statusFilter, startDate: startDateFilter, endDate: endDateFilter });
       setStatusItem(null);
       
+      const successMessage = (response as any)?.message || 'Status berhasil diubah.';
+
       Swal.fire({
         title: 'Berhasil!',
-        text: `Status KOL "${kolName}" berhasil diubah.`,
+        text: successMessage,
         icon: 'success',
         timer: 1500,
         showConfirmButton: false
@@ -226,27 +214,19 @@ export default function KolPage({
     } catch (error: any) {
       console.error('Gagal mengubah status KOL:', error);
       setStatusItem(null);
-      Swal.fire('Gagal!', error.response?.data?.message || 'Terjadi kesalahan saat mengubah status.', 'error');
+
+      const errorMessage = error.response?.data?.message || 'Terjadi kesalahan saat mengubah status.';
+
+      Swal.fire({
+        title: 'Gagal!',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
     }
   };
 
   const handleInitialFormSubmit = async (formData: Record<string, any>) => {
-    const resolvedName = formData.name || formData.nama_kol || formData.nama || '';
-    const resolvedUsername = formData.username || '';
-    const rawWhatsapp = String(formData.whatsapp || '').replace(/\D/g, '');
-    const resolvedProvince = String(formData.province_name || formData.provinsi || selectedProvinceName || '').trim();
-    const resolvedCity = String(formData.city_name || formData.kota_asal || '').trim();
-
-    if (!resolvedName || !resolvedUsername || !rawWhatsapp || !resolvedProvince || !resolvedCity) {
-      toast.error('KOL gagal dibuat', { description: 'Semua field formulir wajib diisi dengan lengkap.' });
-      return; 
-    }
-
-    if (rawWhatsapp.length < 11 || rawWhatsapp.length > 14) {
-      toast.error('Nomor WhatsApp Tidak Valid', { description: 'Nomor WhatsApp harus di antara 11 hingga 14 digit.' });
-      return; 
-    }
-
     setPendingFormData(formData);
     setIsModalOpen(false);
   };
@@ -264,7 +244,7 @@ export default function KolPage({
       const rawType = pendingFormData.type || pendingFormData.tipe_kol || 'Reguler';
       const resolvedType = typeof rawType === 'object' && rawType !== null ? (rawType.value || rawType.label || 'Reguler') : String(rawType);
 
-      const payload = {
+      const payload: any = {
         name: resolvedName,
         nama_kol: resolvedName,
         username: resolvedUsername,
@@ -276,45 +256,45 @@ export default function KolPage({
         type: resolvedType,
         campaign_start_date: formatDate(pendingFormData.campaign_start_date),
         campaign_end_date: formatDate(pendingFormData.campaign_end_date),
-        referral_code: selectedKolToEdit ? (selectedKolToEdit.referral_code || selectedKolToEdit.kode_referral) : generateReferralCode(),
         status: selectedKolToEdit ? (selectedKolToEdit.status ?? 1) : 1 
       };
 
+      let response;
       if (selectedKolToEdit) {
         const targetId = selectedKolToEdit.id || selectedKolToEdit.uid;
-        if (!targetId) {
-          Swal.fire('Gagal!', 'ID data KOL tidak valid.', 'error');
-          return;
-        }
-        await kolApi.update(targetId, payload);
-        
-        Swal.fire({
-          title: 'Berhasil!',
-          text: `Data KOL "${resolvedName}" berhasil diperbarui.`,
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
+        payload.referral_code = selectedKolToEdit.referral_code || selectedKolToEdit.kode_referral;
+
+        response = await kolService.updateKol(targetId as string | number, payload);
       } else {
-        await addKol(payload);
-        
-        Swal.fire({
-          title: 'Berhasil!',
-          text: `KOL "${resolvedName}" berhasil ditambahkan.`,
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
+        response = await kolService.createKol(payload);
       }
 
+      const successMessage = (response as any)?.message || 'Data berhasil disimpan.';
+
+      Swal.fire({
+        title: 'Berhasil!',
+        text: successMessage,
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
+
       await refetch({ search: debouncedSearch, status: statusFilter, startDate: startDateFilter, endDate: endDateFilter });
-    } catch (error: any) {
-      console.error('Gagal menyimpan data:', error);
-      Swal.fire('Gagal Menyimpan', error.response?.data?.message || 'Terjadi kesalahan.', 'error');
-    } finally {
+      
       setSelectedKolToEdit(null);
       setPendingFormData(null);
       setSelectedProvinceName('');
+    } catch (error: any) {
+      console.error('Gagal menyimpan data:', error);
+      
+      const errorMessage = error.response?.data?.message || 'Terjadi kesalahan pada server.';
+
+      toast.error('KOL gagal dibuat', { 
+        description: errorMessage 
+      });
+
+      setIsModalOpen(true);
+      setPendingFormData(null);
     }
   };
 
@@ -322,70 +302,144 @@ export default function KolPage({
     if (!deleteItem) return;
     const targetId = deleteItem.id || deleteItem.uid;
     if (!targetId) return;
-    const kolName = deleteItem.name || deleteItem.nama_kol;
 
     try {
-      await kolApi.delete(targetId);
+      await kolService.deleteKol(targetId as string | number);
       await refetch({ search: debouncedSearch, status: statusFilter, startDate: startDateFilter, endDate: endDateFilter });
       setDeleteItem(null);
-      
+
       Swal.fire({
         title: 'Terhapus!',
-        text: `Data KOL "${kolName}" berhasil dihapus.`,
+        text: 'Data KOL berhasil dihapus.',
         icon: 'success',
         timer: 1500,
         showConfirmButton: false
       });
     } catch (error: any) {
       setDeleteItem(null);
-      Swal.fire('Gagal!', error.response?.data?.message || 'Terjadi kesalahan saat menghapus data.', 'error');
+
+      const errorMessage = error.response?.data?.message || 'Terjadi kesalahan saat menghapus data.';
+
+      Swal.fire({
+        title: 'Gagal!',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportClick = () => {
+    setIsExportConfirmOpen(true);
+  };
+
+  const handleConfirmExport = async () => {
+    setIsExportConfirmOpen(false);
+    setIsExporting(true);
     try {
-      const worksheetData = filteredData.map((item, index) => ({
-        No: index + 1,
-        'Nama KOL': item.name || item.nama_kol || '',
-        Username: item.username || '',
-        'Kode Referral': item.referral_code || item.kode_referral || '',
-        'No. WhatsApp': item.whatsapp || '',
-        'Kota Asal': item.city_name || item.kota_asal || '',
-        Provinsi: item.province_name || item.provinsi || '',
-        'Tipe Campaign': item.type || item.tipe_kol || '',
-        'Campaign Start Date': item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-',
-        'Campaign End Date': item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-',
-        Status: item.status,
-      }));
-      const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Master KOL');
-      XLSX.writeFile(workbook, `Master_KOL_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      toast.success('Berhasil!', { description: 'File Excel berhasil didownload.' });
-    } catch (error) {
-      toast.error('Gagal!', { description: 'Terjadi kesalahan saat mengeksport data.' });
+      const activeColumnsList = Object.keys(columnVisibility).filter(key => columnVisibility[key]);
+
+      const checkRes = await kolService.checkExportData({
+        search: debouncedSearch,
+        status: statusFilter,
+        startDate: startDateFilter,
+        endDate: endDateFilter,
+        columns: activeColumnsList,
+      } as any);
+
+      if (checkRes && checkRes.success) {
+        const worksheetData = filteredData.map((item, index) => {
+          const rowObj: Record<string, any> = { No: index + 1 };
+
+          // Hanya masukkan ke rowObj jika kolom tersebut dicentang (aktif) di UI
+          if (columnVisibility['referral_code']) rowObj['Kode Referral'] = item.referral_code || item.kode_referral || '';
+          if (columnVisibility['name']) rowObj['Nama KOL'] = item.name || item.nama_kol || '';
+          if (columnVisibility['username']) rowObj['Username'] = item.username || '';
+          if (columnVisibility['whatsapp']) rowObj['No. WhatsApp'] = item.whatsapp || '';
+          if (columnVisibility['city_name']) rowObj['Kota Asal'] = item.city_name || item.kota_asal || '';
+          if (columnVisibility['province_name']) rowObj['Provinsi'] = item.province_name || item.provinsi || '';
+          if (columnVisibility['type']) rowObj['Tipe Campaign'] = item.type || item.tipe_kol || '';
+          if (columnVisibility['campaign_start_date']) rowObj['Campaign Start Date'] = item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-';
+          if (columnVisibility['campaign_end_date']) rowObj['Campaign End Date'] = item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-';
+          if (columnVisibility['status']) rowObj['Status'] = item.status;
+
+          return rowObj;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Master KOL');
+        XLSX.writeFile(workbook, `Master_KOL_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        toast.success('Berhasil!', { description: 'File Excel berhasil didownload.' });
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Tidak ada data KOL yang tersedia untuk diexport.';
+      toast.error('Gagal Export!', { description: errorMsg });
+    } finally {
+      setIsExporting(false);
     }
   };
 
-  // Header kolom direvisi dari huruf kapital semua menjadi Title Case (Huruf biasa)
   const columns = [
-    { accessorKey: 'id', header: () => <div className="text-center">ID</div>, cell: ({ row }: any) => <div className="text-center font-normal text-slate-700 dark:text-slate-300">{row.index + 1}</div> },
-    { accessorKey: 'referral_code', header: () => <div className="text-center">Kode Referral</div>, cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-bold text-slate-800 dark:text-white">{row.original.referral_code || row.original.kode_referral || '-'}</span></div> },
-    { accessorKey: 'name', header: () => <div className="text-center">Nama</div>, cell: ({ row }: any) => <div className="text-left"><span className="font-normal text-slate-700 dark:text-slate-300">{row.original.name || row.original.nama_kol}</span></div> },
-    { accessorKey: 'username', header: () => <div className="text-center">Username</div>, cell: ({ row }: any) => <div className="text-center">{row.original.username || '-'}</div> },
-    { accessorKey: 'whatsapp', header: () => <div className="text-center">WhatsApp</div>, cell: ({ row }: any) => <div className="text-center">{row.original.whatsapp || '-'}</div> },
-    { accessorKey: 'city_name', header: () => <div className="text-center">Kota Asal</div>, cell: ({ row }: any) => <div className="text-center">{row.original.city_name || row.original.kota_asal || '-'}</div> },
-    { accessorKey: 'province_name', header: () => <div className="text-center">Provinsi</div>, cell: ({ row }: any) => <div className="text-center">{row.original.province_name || row.original.provinsi || '-'}</div> },
-    { accessorKey: 'type', header: () => <div className="text-center">Tipe</div>, cell: ({ row }: any) => <div className="text-center">{row.original.type || row.original.tipe_kol || '-'}</div> },
+    { 
+      accessorKey: 'id', 
+      header: () => <div className="text-center">ID</div>, 
+      cell: ({ row }: any) => <div className="text-center font-normal text-slate-700 dark:text-slate-300">{row.index + 1}</div>, 
+      label: 'ID'
+    },
+    { 
+      accessorKey: 'referral_code', 
+      header: () => <div className="text-center">Kode Referral</div>, 
+      cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-bold text-slate-800 dark:text-white">{row.original.referral_code || row.original.kode_referral || '-'}</span></div>, 
+      label: 'Kode Referral'
+    },
+    { 
+      accessorKey: 'name', 
+      header: () => <div className="text-left -ml-2">Nama</div>, 
+      cell: ({ row }: any) => <div className="text-left -ml-2"><span className="font-normal text-slate-700 dark:text-slate-300">{row.original.name || row.original.nama_kol}</span></div>, 
+      label: 'Nama'
+    },
+    { 
+      accessorKey: 'username', 
+      header: () => <div className="text-left -ml-2">Username</div>, 
+      cell: ({ row }: any) => <div className="text-left -ml-2">{row.original.username || '-'}</div>, 
+      label: 'Username'
+    },
+    { 
+      accessorKey: 'whatsapp', 
+      header: () => <div className="text-left -ml-2">WhatsApp</div>, 
+      cell: ({ row }: any) => <div className="text-left -ml-2">{row.original.whatsapp || '-'}</div>, 
+      label: 'WhatsApp'
+    },
+    { 
+      accessorKey: 'city_name', 
+      header: () => <div className="text-left -ml-2">Kota Asal</div>, 
+      cell: ({ row }: any) => <div className="text-left -ml-2">{row.original.city_name || row.original.kota_asal || '-'}</div>, 
+      label: 'Kota Asal'
+    },
+    { 
+      accessorKey: 'province_name', 
+      header: () => <div className="text-left -ml-2">Provinsi</div>, 
+      cell: ({ row }: any) => <div className="text-left -ml-2">{row.original.province_name || row.original.provinsi || '-'}</div>, 
+      label: 'Provinsi'
+    },
+    { 
+      accessorKey: 'type', 
+      header: () => <div className="text-center">Type</div>, 
+      cell: ({ row }: any) => <div className="text-center">{row.original.type || row.original.tipe_kol || '-'}</div>, 
+      label: 'Type'
+    },
     { 
       accessorKey: 'campaign_start_date', 
       header: () => <div className="text-center">Mulai Campaign</div>, 
-      cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">{row.original.campaign_start_date ? String(row.original.campaign_start_date).split('T')[0] : '-'}</span></div> 
+      cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">{row.original.campaign_start_date ? String(row.original.campaign_start_date).split('T')[0] : '-'}</span></div>,
+      label: 'Mulai Campaign'
     },
     { 
       accessorKey: 'campaign_end_date', 
       header: () => <div className="text-center">Selesai Campaign</div>, 
-      cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">{row.original.campaign_end_date ? String(row.original.campaign_end_date).split('T')[0] : '-'}</span></div> 
+      cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">{row.original.campaign_end_date ? String(row.original.campaign_end_date).split('T')[0] : '-'}</span></div>,
+      label: 'Selesai Campaign'
     },
     { 
       accessorKey: 'status', 
@@ -403,7 +457,8 @@ export default function KolPage({
             />
           </div>
         );
-      } 
+      },
+      label: 'Status'
     },
     {
       accessorKey: 'actions',
@@ -438,27 +493,21 @@ export default function KolPage({
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>
-      )
+      ),
+      label: 'Aksi'
     }
   ];
 
   return (
     <div className={`space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm transition-all duration-300 ${isModalOpen ? 'blur-sm brightness-90 pointer-events-none' : ''}`}>
-      <div className={`w-full rounded-none shadow-sm border overflow-visible transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+      <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
         
-        {/* HEADER PANEL */}
-        <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2e303a] overflow-visible">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
-              <PiUsers className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                Master KOL
-              </h2>
-            </div>
-          </div>
-
+        <PageHeader 
+          icon={<PiUsers className="w-5 h-5" />}
+          title="Master KOL"
+          isDarkMode={isDarkMode}
+          className="[&_h2]:text-xs [&_h2]:font-semibold"
+        >
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 overflow-visible">
             <div className="relative w-full sm:w-72 overflow-visible">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -494,7 +543,6 @@ export default function KolPage({
                   setEndDateFilter(filters.endDate || '');
                 }}
                 isDarkMode={isDarkMode}
-                title="Filter Lanjutan KOL"
                 showDateFilter={true}
                 statusOptions={[
                   { label: 'Semua Status', value: 'Semua' },
@@ -506,11 +554,12 @@ export default function KolPage({
 
             <Button
               type="button"
-              onClick={handleExportExcel}
-              className="hidden md:flex shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm h-10 px-4 shadow-sm"
+              onClick={handleExportClick}
+              disabled={isExporting}
+              className="hidden md:flex shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm h-10 px-4 shadow-sm cursor-pointer disabled:opacity-50"
             >
               <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-              <span>Export</span>
+              <span>{isExporting ? 'Memeriksa...' : 'Export'}</span>
             </Button>
 
             <Button
@@ -526,14 +575,16 @@ export default function KolPage({
               <span>Tambah</span>
             </Button>
           </div>
-        </div>
+        </PageHeader>
 
-        {/* Tabel Data (Card Mobile khusus block md:hidden & Tabel untuk desktop) */}
-        <div className="w-full [&_div]:border-none [&_table]:mb-0">
+        {/* Tabel Data (ReusableTable) - Disinkronkan dengan columnVisibility */}
+        <div className="w-full">
           <ReusableTable
             data={filteredData}
             columns={columns}
             isDarkMode={isDarkMode}
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
             renderCardMobile={(item, absoluteIndex) => {
               const statusVal = item.status;
               const isActive = statusVal === 1 || statusVal === '1' || String(statusVal).toLowerCase() === 'active' || String(statusVal).toLowerCase() === 'aktif';
@@ -543,7 +594,6 @@ export default function KolPage({
                 <div key={item.id || item.uid || absoluteIndex} className="block md:hidden mb-3">
                   <Card className={`overflow-hidden rounded-2xl border shadow-sm ${isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                     
-                    {/* Header Card: ID & Switch Status */}
                     <div className="p-3 pb-2.5 flex items-center justify-between border-b border-slate-100 dark:border-[#2e303a]">
                       <span className="text-xs font-bold text-slate-800 dark:text-white">ID: #{absoluteIndex}</span>
                       <Switch
@@ -554,16 +604,13 @@ export default function KolPage({
                       />
                     </div>
                     
-                    {/* Konten Utama (Posisi rata kiri semua) */}
                     <CardContent className="p-3 space-y-3 text-xs">
                       
-                      {/* Nama & Username di Atas Kiri */}
                       <div className="text-left py-0.5">
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white">{item.name || item.nama_kol}</h4>
                         <p className="text-[11px] text-slate-400 mt-0.5">@{item.username || '-'}</p>
                       </div>
 
-                      {/* Kotak Khusus Kode Referral (Gaya seperti Kode Booking) */}
                       <div className={`p-2.5 rounded-xl border flex items-center gap-3 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a]' : 'bg-slate-50/80 border-slate-100'}`}>
                         <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                           <Ticket className="w-4 h-4" />
@@ -576,7 +623,6 @@ export default function KolPage({
                         </div>
                       </div>
 
-                      {/* Grid Informasi (WhatsApp di kiri, rata kiri semua) */}
                       <div className="grid grid-cols-2 gap-2.5 pt-1 text-xs text-left">
                         <div>
                           <span className="text-[10px] text-slate-400 uppercase font-semibold block">WhatsApp</span>
@@ -598,7 +644,6 @@ export default function KolPage({
 
                     </CardContent>
 
-                    {/* Footer Tombol Aksi (Edit & Hapus) */}
                     <CardFooter className={`p-2.5 flex justify-end gap-2 border-t ${isDarkMode ? 'bg-[#1f2028]/50 border-[#2e303a]' : 'bg-slate-50/80 border-slate-100'}`}>
                       <Button
                         size="sm"
@@ -634,8 +679,9 @@ export default function KolPage({
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 md:hidden pointer-events-auto">
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportExcel(); }}
-          className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer hover:bg-blue-700"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportClick(); }}
+          disabled={isExporting}
+          className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer hover:bg-blue-700 disabled:opacity-50"
         >
           <FileSpreadsheet className="w-6 h-6" />
         </button>
@@ -648,7 +694,7 @@ export default function KolPage({
         </button>
       </div>
 
-      {/* Render Modal Berdasarkan Kondisi (Create / Edit Terpisah) */}
+      {/* Render Modal Berdasarkan Kondisi */}
       {selectedKolToEdit ? (
         <KolEditModal
           isOpen={isModalOpen}
@@ -698,89 +744,82 @@ export default function KolPage({
         />
       )}
 
+      {/* Dialog Konfirmasi Export */}
+      <ConfirmDialog
+        isOpen={isExportConfirmOpen}
+        onOpenChange={setIsExportConfirmOpen}
+        title="Export Data Master KOL?"
+        description="Apakah Anda yakin ingin meng-export data Master KOL ini ke file Excel?"
+        confirmText="Ya, Export"
+        onConfirm={handleConfirmExport}
+        icon={<FileSpreadsheet className="w-6 h-6" />}
+        variant="success"
+        isDarkMode={isDarkMode}
+      />
+
       {/* Dialog Konfirmasi Simpan */}
-      <AlertDialog open={Boolean(pendingFormData)} onOpenChange={() => setPendingFormData(null)}>
-        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
-          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
-            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50">
-              <Plus className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <div className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                {selectedKolToEdit ? 'Konfirmasi Perubahan?' : 'Simpan KOL Baru?'}
-              </div>
-              <AlertDialogDescription className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Apakah Anda yakin ingin {selectedKolToEdit ? 'memperbarui' : 'menambahkan'} data KOL <span className="font-semibold text-emerald-600">{pendingFormData?.name || pendingFormData?.nama_kol || pendingFormData?.nama}</span>?
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 bg-transparent border-0">
-            <AlertDialogCancel 
-              onClick={() => { setPendingFormData(null); setSelectedKolToEdit(null); }} 
-              className={`w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold transition-all ${isDarkMode ? 'bg-rose-600/20 text-rose-400 border border-rose-900/50 hover:bg-rose-600/30' : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'}`}
-            >
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave} className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg">
-              Ya, Simpan
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(pendingFormData)}
+        onOpenChange={(open) => !open && setPendingFormData(null)}
+        title={selectedKolToEdit ? 'Konfirmasi Perubahan?' : 'Simpan KOL Baru?'}
+        description={
+          <>
+            Apakah Anda yakin ingin {selectedKolToEdit ? 'memperbarui' : 'menambahkan'} data KOL{' '}
+            <span className="font-semibold text-emerald-600">
+              {pendingFormData?.name || pendingFormData?.nama_kol || pendingFormData?.nama}
+            </span>
+            ?
+          </>
+        }
+        confirmText="Ya, Simpan"
+        onConfirm={handleConfirmSave}
+        onCancel={() => setSelectedKolToEdit(null)}
+        icon={<Plus className="w-6 h-6" />}
+        variant="success"
+        isDarkMode={isDarkMode}
+      />
 
       {/* Dialog Konfirmasi Ubah Status */}
-      <AlertDialog open={Boolean(statusItem)} onOpenChange={() => setStatusItem(null)}>
-        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
-          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
-            <div className={`mx-auto sm:mx-0 w-12 h-12 rounded-2xl flex items-center justify-center border ${isDarkMode ? 'bg-emerald-950/50 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-              <Plus className="w-6 h-6 rotate-45" />
-            </div>
-            <div className="space-y-1">
-              <div className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                Ubah Status KOL?
-              </div>
-              <AlertDialogDescription className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Apakah Anda yakin ingin mengubah status KOL <span className={`font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{statusItem?.name || statusItem?.nama_kol}</span>?
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 bg-transparent border-0">
-            <AlertDialogCancel onClick={() => setStatusItem(null)} className={`w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold transition-all ${isDarkMode ? 'bg-rose-600/20 text-rose-400 border border-rose-900/50' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmToggleStatus} className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg">
-              Ya, Ubah
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(statusItem)}
+        onOpenChange={(open) => !open && setStatusItem(null)}
+        title="Ubah Status KOL?"
+        description={
+          <>
+            Apakah Anda yakin ingin mengubah status KOL{' '}
+            <span className={`font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+              {statusItem?.name || statusItem?.nama_kol}
+            </span>
+            ?
+          </>
+        }
+        confirmText="Ya, Ubah"
+        onConfirm={handleConfirmToggleStatus}
+        icon={<Plus className="w-6 h-6 rotate-45" />}
+        variant="success"
+        isDarkMode={isDarkMode}
+      />
 
       {/* Dialog Konfirmasi Hapus */}
-      <AlertDialog open={Boolean(deleteItem)} onOpenChange={() => setDeleteItem(null)}>
-        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
-          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
-            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 border border-rose-100 dark:border-rose-900/50">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <div className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                Hapus Data KOL Ini?
-              </div>
-              <AlertDialogDescription className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Tindakan ini bersifat permanen. Data KOL <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.name || deleteItem?.nama_kol}</span> akan dihapus dari sistem.
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 bg-transparent border-0">
-            <AlertDialogCancel onClick={() => setDeleteItem(null)} className={`w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold transition-all ${isDarkMode ? 'bg-rose-600/20 text-rose-400 border border-rose-900/50' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="w-full sm:w-1/2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg">
-              Ya, Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(deleteItem)}
+        onOpenChange={(open) => !open && setDeleteItem(null)}
+        title="Hapus Data KOL Ini?"
+        description={
+          <>
+            Tindakan ini bersifat permanen. Data KOL{' '}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              {deleteItem?.name || deleteItem?.nama_kol}
+            </span>{' '}
+            akan dihapus dari sistem.
+          </>
+        }
+        confirmText="Ya, Hapus"
+        onConfirm={handleConfirmDelete}
+        icon={<Trash2 className="w-6 h-6" />}
+        variant="danger"
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }

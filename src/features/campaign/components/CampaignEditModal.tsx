@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
-import FormModal from '../../../components/FormModal';
+import FormModal, { type FieldConfig } from '../../../components/FormModal';
 
 interface CampaignEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitSuccess: (formData: Record<string, any>) => void;
-  initialData: any | null;
+  initialData?: Record<string, any> | null;
   isDarkMode: boolean;
 }
 
@@ -17,7 +17,7 @@ export default function CampaignEditModal({
   isDarkMode,
 }: CampaignEditModalProps) {
   
-  const editFields = useMemo(() => {
+  const editFields: FieldConfig[] = useMemo(() => {
     return [
       { 
         name: 'campaign_name', 
@@ -28,7 +28,7 @@ export default function CampaignEditModal({
       {
         name: 'status',
         label: 'Status',
-        type: 'select' as const,
+        type: 'select',
         options: [
           { label: 'Active', value: 'Active' },
           { label: 'Non Active', value: 'Non Active' }

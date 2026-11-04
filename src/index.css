@@ -10,6 +10,15 @@
 /* csslint-enable */
 
 :root {
+  /* FONT GLOBAL */
+  --font-sans: 'Poppins', sans-serif;
+  --font-heading: var(--font-sans);
+  --sans: var(--font-sans);
+  --heading: var(--font-sans);
+  --mono: ui-monospace, Consolas, monospace;
+
+  font-family: var(--font-sans);
+
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -19,26 +28,21 @@
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --heading: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px,
+    rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
   font-size: 18px;
   line-height: 145%;
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 
   /* Shadcn Light Variables */
   --background: oklch(1 0 0);
@@ -73,6 +77,13 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Responsif untuk Layar <= 1024px */
+@media (max-width: 1024px) {
+  :root {
+    font-size: 16px;
+  }
+}
+
 /* Dark Theme Variables */
 .dark {
   --text: #9ca3af;
@@ -84,7 +95,8 @@
   --accent-bg: rgba(192, 132, 252, 0.15);
   --accent-border: rgba(192, 132, 252, 0.5);
   --social-bg: rgba(47, 48, 58, 0.5);
-  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px,
+    rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 
   --background: #16171d;
   --foreground: #f3f4f6;
@@ -115,8 +127,11 @@
   --sidebar-accent-foreground: #f3f4f6;
   --sidebar-border: #2e303a;
   --sidebar-ring: #c084fc;
+
+  color-scheme: dark;
 }
 
+/* ROOT APPLICATION */
 #root {
   width: 100%;
   max-width: 100%;
@@ -129,22 +144,36 @@
   box-sizing: border-box;
 }
 
+/* FONT GLOBAL UNTUK SELURUH ELEMEN */
+*,
+*::before,
+*::after {
+  font-family: var(--font-sans);
+  text-shadow: none !important;
+  box-sizing: border-box;
+}
+
+/* BODY DAN HTML */
+html {
+  font-family: var(--font-sans);
+}
+
 body {
   margin: 0;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Pastikan semua elemen teks bebas dari efek bayangan tak sengaja */
-*, ::before, ::after {
-  text-shadow: none !important;
-}
-
+/* HEADING */
 h1,
-h2 {
-  font-family: var(--heading);
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
   font-weight: 500;
   color: var(--text-h);
 }
@@ -153,7 +182,10 @@ h1 {
   font-size: 56px;
   letter-spacing: -1.68px;
   margin: 32px 0;
-  @media (max-width: 1024px) {
+}
+
+@media (max-width: 1024px) {
+  h1 {
     font-size: 36px;
     margin: 20px 0;
   }
@@ -164,18 +196,59 @@ h2 {
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
-  @media (max-width: 1024px) {
+}
+
+@media (max-width: 1024px) {
+  h2 {
     font-size: 20px;
   }
+}
+
+/* TEKS */
+p,
+span,
+label,
+a,
+li,
+td,
+th,
+div {
+  font-family: var(--font-sans);
 }
 
 p {
   margin: 0;
 }
 
+/* INPUT, BUTTON, DAN KOMPONEN FORM */
+button,
+input,
+textarea,
+select,
+option,
+optgroup,
+fieldset,
+legend {
+  font-family: var(--font-sans);
+}
+
+/* KOMPONEN SHADCN DAN KOMPONEN FORM */
+[data-slot],
+[data-radix-collection-item] {
+  font-family: var(--font-sans);
+}
+
+/* CODE DAN COUNTER TETAP MENGGUNAKAN FONT MONOSPACE */
+code,
+pre,
+.counter,
+kbd,
+samp {
+  font-family: var(--mono);
+}
+
 code,
 .counter {
-  font-family: var(--mono);
   display: inline-flex;
   border-radius: 4px;
   color: var(--text-h);
@@ -188,10 +261,11 @@ code {
   background: var(--code-bg);
 }
 
-/* stylelint-disable */
+/* TAILWIND THEME */
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Poppins', sans-serif;
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -200,29 +274,35 @@ code {
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -232,20 +312,23 @@ code {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* BASE LAYER */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
   }
-}
-/* stylelint-enable */
 
-/* KELAS UTILITY UNTUK MENYEMBUNYIKAN SCROLLBAR */
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+/* UTILITY UNTUK MENYEMBUNYIKAN SCROLLBAR */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
@@ -257,7 +340,7 @@ code {
   scrollbar-width: none !important;
 }
 
-/* CUSTOM STYLE UNTUK PROGRESS BAR MERAH DI SONNER TOAST ERROR */
+/* PROGRESS BAR MERAH PADA SONNER TOAST ERROR */
 [data-sonner-toast][data-type="error"] {
   position: relative;
   overflow: hidden;
@@ -271,13 +354,14 @@ code {
   width: 100%;
   height: 3.5px;
   background-color: #ef4444;
-  animation: sonner-progress linear 4s forwards;
+  animation: sonner-progress 4s linear forwards;
 }
 
 @keyframes sonner-progress {
   0% {
     width: 100%;
   }
+
   100% {
     width: 0%;
   }

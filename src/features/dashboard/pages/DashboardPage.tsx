@@ -18,7 +18,9 @@ import {
 } from '../../../components/ui/dropdown-menu';
 
 import StatsCard from '../../../components/StatsCard'; 
-import { campaignApi, dashboardApi } from '../../../components/apiService'; 
+import { PageHeader } from '../../../components/ui/PageHeader'; 
+import { campaignService } from '../../campaign/services/campaign.service';
+import { dashboardService } from '../services/dashboard.service';
 
 interface DashboardPageProps {
   isDarkMode?: boolean;
@@ -32,12 +34,12 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
 
   const [dashboardData, setDashboardData] = useState<any>(null);
 
-  // 1. Fetch Campaign Menggunakan campaignApi Terpusat
+  // 1. Fetch Campaign Menggunakan campaignService Modular
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const response = await campaignApi.getAll();
-        const rawData = Array.isArray(response) ? response : response.data || [];
+        const response = await campaignService.getAllCampaigns();
+        const rawData = Array.isArray(response) ? response : (response as any)?.data || [];
         
         const activeCampaigns = rawData.filter((item: any) => {
           const statusVal = item.status;
@@ -72,12 +74,15 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
     fetchCampaigns();
   }, []);
 
-  // 2. Fetch Dashboard Summary Menggunakan dashboardApi Terpusat
+  // 2. Fetch Dashboard Summary Menggunakan dashboardService Modular
   useEffect(() => {
     const fetchDashboardSummary = async () => {
       try {
         const campaignName = activeCategory === 'event' && selectedCampaign ? String(selectedCampaign) : undefined;
-        const response = await dashboardApi.getSummary(activeCategory, campaignName);
+        const response = await dashboardService.getDashboardSummary({
+          type: activeCategory,
+          campaign: campaignName
+        });
         
         if (response) {
           setDashboardData(response);
@@ -145,106 +150,91 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
   return (
     <div className={`space-y-3 m-0 p-0 pt-0 pb-24 md:pb-6 text-sm ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
       
-      {/* HEADER UTAMA DASHBOARD - Padding diperkecil di mobile */}
-      <div className={`w-full rounded-none shadow-sm border-x-0 border-t-0 border-b py-2.5 px-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-2.5 transition-colors duration-300 ${
-        isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
-      }`}>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white shadow-sm shrink-0">
-            <LayoutDashboard className="w-4 h-4" />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className={`text-sm md:text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-              Dashboard KOL
-            </h2>
-            {/* Kembali tebal (font-semibold) */}
-            <span className="text-[11px] bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded-md font-semibold">
-              {activeCategory === 'event' ? (selectedCampaignObj?.label || 'Event') : 'Reguler'}
-            </span>
-          </div>
-        </div>
+      {/* PAGE HEADER */}
+      <PageHeader 
+        icon={<LayoutDashboard className="w-4 h-4" />}
+        title="Dashboard KOL"
+        leftContent={
+          <span className="text-[11px] bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400 px-2.5 py-0.5 rounded-full font-semibold -translate-y-0.5 relative">
+            {activeCategory === 'event' ? (selectedCampaignObj?.label || 'Event') : 'Reguler'}
+          </span>
+        }
+        isDarkMode={isDarkMode}
+      >
+        {/* SISI KANAN: Tombol Program Reguler & Event */}
+        <div className={`p-0.5 rounded-xl border flex items-center gap-1 ${
+          isDarkMode ? 'bg-[#16171d] border-[#2e303a]' : 'bg-slate-50 border-slate-200'
+        }`}>
+          <button
+            type="button"
+            onClick={() => setActiveCategory('reguler')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              activeCategory === 'reguler'
+                ? 'bg-white dark:bg-[#262833] text-emerald-600 dark:text-emerald-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+            }`}
+          >
+            Program Reguler
+          </button>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className={`p-0.5 rounded-xl border flex items-center gap-1 ${
-            isDarkMode ? 'bg-[#16171d] border-[#2e303a]' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <button
-              type="button"
-              onClick={() => setActiveCategory('reguler')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeCategory === 'reguler'
+          <DropdownMenu>
+            <DropdownMenuTrigger 
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 outline-none ${
+                activeCategory === 'event'
                   ? 'bg-white dark:bg-[#262833] text-emerald-600 dark:text-emerald-400 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 bg-transparent border-0'
               }`}
             >
-              Program Reguler
-            </button>
+              <span>Program Event</span>
+              <ChevronDown className="w-3 h-3 ml-0.5" />
+            </DropdownMenuTrigger>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger 
-                onClick={() => setActiveCategory('event')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 outline-none ${
-                  activeCategory === 'event'
-                    ? 'bg-white dark:bg-[#262833] text-emerald-600 dark:text-emerald-400 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 bg-transparent border-0'
-                }`}
+            <DropdownMenuContent className={`w-56 rounded-xl border shadow-xl z-30 text-sm ${
+              isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
+            }`}>
+              <div 
+                className="p-2 border-b border-slate-200 dark:border-[#2e303a] flex items-center gap-2"
+                onKeyDown={(e) => e.stopPropagation()}
               >
-                <span>Program Event</span>
-                {activeCategory === 'event' && (
-                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1 py-0.5 rounded font-semibold">
-                    {selectedCampaignObj ? selectedCampaignObj.label : 'Pilih'}
-                  </span>
-                )}
-                <ChevronDown className="w-3 h-3 ml-0.5" />
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent className={`w-56 rounded-xl border shadow-xl z-30 text-sm ${
-                isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
-              }`}>
-                <div 
-                  className="p-2 border-b border-slate-200 dark:border-[#2e303a] flex items-center gap-2"
+                <Search className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
+                <input
+                  type="text"
+                  value={campaignSearchQuery}
+                  onChange={(e) => setCampaignSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <Search className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
-                  <input
-                    type="text"
-                    value={campaignSearchQuery}
-                    onChange={(e) => setCampaignSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    placeholder="Cari campaign..."
-                    className="w-full bg-transparent outline-none text-sm placeholder-slate-400"
-                    autoFocus
-                  />
-                </div>
-                <div 
-                  className="max-h-48 overflow-y-auto p-1 space-y-0.5"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
-                  {filteredCampaigns.length > 0 ? (
-                    filteredCampaigns.map((opt: any, idx: number) => (
-                      <DropdownMenuItem
-                        key={idx}
-                        onClick={() => {
-                          setActiveCategory('event');
-                          setSelectedCampaign(opt.value);
-                        }}
-                        className="px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-[#262833] text-sm font-semibold"
-                      >
-                        <span>{opt.label}</span>
-                        {activeCategory === 'event' && String(selectedCampaign) === String(opt.value) && (
-                          <Check className="w-4 h-4 text-emerald-600" />
-                        )}
-                      </DropdownMenuItem>
-                    ))
-                  ) : (
-                    <div className="p-3 text-center text-slate-400 text-sm">Campaign tidak ditemukan</div>
-                  )}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  placeholder="Cari campaign..."
+                  className="w-full bg-transparent outline-none text-sm placeholder-slate-400"
+                  autoFocus
+                />
+              </div>
+              <div 
+                className="max-h-48 overflow-y-auto p-1 space-y-0.5"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {filteredCampaigns.length > 0 ? (
+                  filteredCampaigns.map((opt: any, idx: number) => (
+                    <DropdownMenuItem
+                      key={idx}
+                      onClick={() => {
+                        setActiveCategory('event');
+                        setSelectedCampaign(opt.value);
+                      }}
+                      className="px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-[#262833] text-sm font-semibold"
+                    >
+                      <span>{opt.label}</span>
+                      {activeCategory === 'event' && String(selectedCampaign) === String(opt.value) && (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-slate-400 text-sm">Campaign tidak ditemukan</div>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="px-3 md:px-6 space-y-3">
         {/* STATS CARDS */}
@@ -309,7 +299,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
                 topKolData.map((item: any, idx: number) => (
                   <div key={item.id} className="p-2 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
                     <div className="flex items-center gap-2 min-w-0">
-                      {/* Nomor peringkat kembali tebal (font-bold) */}
                       <div className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-900/50">
                         {idx + 1}
                       </div>
@@ -317,7 +306,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
                         {item.initials}
                       </div>
                       <div className="text-left min-w-0">
-                        {/* Nama KOL kembali tebal (font-bold) */}
                         <h4 className="font-bold text-slate-800 dark:text-white text-xs truncate">{item.nama_kol}</h4>
                         <p className="text-[10px] text-slate-400 truncate">@{item.username}</p>
                       </div>
@@ -325,17 +313,14 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
 
                     <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-end gap-1.5 text-center sm:text-right pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
                       <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded">
-                        {/* Angka reservasi kembali tebal */}
                         <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.reservasi}</span>
                         <span className="text-[9px] text-slate-400 uppercase">Reservasi</span>
                       </div>
                       <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded">
-                        {/* Angka visitor kembali tebal */}
                         <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.total_tiket}</span>
                         <span className="text-[9px] text-slate-400 uppercase">Visitor</span>
                       </div>
                       <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded col-span-3 sm:col-span-1 sm:w-24">
-                        {/* Pendapatan kembali tebal */}
                         <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-xs truncate">{item.revenue}</span>
                         <span className="text-[9px] text-slate-400 uppercase">Pendapatan</span>
                       </div>
@@ -371,7 +356,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
                 topCityList.map((item: any) => (
                   <div key={item.city} className="p-2 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
                     <div className="flex items-center gap-2 min-w-0">
-                      {/* Peringkat kota kembali tebal */}
                       <div className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-900/50">
                         {item.rank}
                       </div>
@@ -379,7 +363,6 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
                         <MapPin className="w-3 h-3" />
                       </div>
                       <div className="text-left min-w-0">
-                        {/* Nama kota kembali tebal */}
                         <h4 className="font-bold text-slate-800 dark:text-white text-xs truncate">{item.city}</h4>
                         <p className="text-[10px] text-slate-400 truncate">{item.province}</p>
                       </div>

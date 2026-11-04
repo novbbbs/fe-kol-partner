@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BarChart3, Megaphone, ChevronDown, FolderKanban, LogOut } from 'lucide-react';
+import { BarChart3, Megaphone, ChevronDown, FolderKanban, CalendarCheck } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import { 
   Collapsible, 
@@ -8,8 +8,8 @@ import {
 } from './ui/collapsible';
 
 interface SidebarProps {
-  activeTab: 'dashboard' | 'kol' | 'campaign';
-  setActiveTab: (tab: 'dashboard' | 'kol' | 'campaign') => void;
+  activeTab: 'dashboard' | 'kol' | 'campaign' | 'reservasi';
+  setActiveTab: (tab: 'dashboard' | 'kol' | 'campaign' | 'reservasi') => void;
   isDarkMode: boolean;
   isSidebarOpen: boolean;
   onCloseMobile?: () => void;
@@ -24,8 +24,6 @@ export default function Sidebar({
   isDarkMode, 
   isSidebarOpen, 
   onCloseMobile,
-  user,
-  onLogout,
   isModalOpen = false
 }: SidebarProps) {
   const [isMasterOpen, setIsMasterOpen] = useState(true);
@@ -67,7 +65,7 @@ export default function Sidebar({
     setShowPopup((prev) => !prev);
   };
 
-  const handleMenuClick = (tab: 'dashboard' | 'kol' | 'campaign') => {
+  const handleMenuClick = (tab: 'dashboard' | 'kol' | 'campaign' | 'reservasi') => {
     setActiveTab(tab);
     setShowPopup(false);
     if (window.innerWidth < 768 && onCloseMobile) {
@@ -86,7 +84,6 @@ export default function Sidebar({
       )}
 
       {/* Sidebar Drawer + Efek Blur jika isModalOpen bernilai true */}
-      {/* Diubah dari w-64 menjadi w-60 agar lebih kekiri dan ramping */}
       <aside className={`fixed inset-y-0 left-0 z-999 flex flex-col transition-all duration-300 border-r transform ${
         isSidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full md:translate-x-0 md:w-20'
       } ${
@@ -125,7 +122,7 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* KONDISI 1: SIDEBAR TERBUKA (Expanded) -> Collapsible Normal */}
+          {/* MASTER DATA (Hanya berisi KOL & Campaign) */}
           {isSidebarOpen ? (
             <Collapsible
               open={isMasterOpen}
@@ -180,8 +177,6 @@ export default function Sidebar({
               </CollapsibleContent>
             </Collapsible>
           ) : (
-            
-            /* KONDISI 2: SIDEBAR TERTUTUP (Collapsed) -> Tombol pemicu Pop-up */
             <div className="w-full">
               <button
                 ref={buttonRef}
@@ -198,48 +193,28 @@ export default function Sidebar({
               </button>
             </div>
           )}
-        </nav>
 
-        {/* --- BAGIAN BAWAH: Profil Admin & Tombol Logout --- */}
-        <div className={`mt-auto border-t transition-all duration-300 ${isDarkMode ? 'border-[#2e303a]' : 'border-slate-200'} ${isSidebarOpen ? 'p-4' : 'p-3 flex flex-col items-center'}`}>
-          {isSidebarOpen ? (
-            <div className="flex flex-col gap-3">
-              {/* Info Admin */}
-              <div className="flex flex-col">
-                <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                  {user?.name || 'Admin Saloka'}
-                </p>
-                <p className="text-xs text-slate-400 font-mono">
-                  ID: {user?.username || '1234'}
-                </p>
-              </div>
-              
-              {/* Tombol Logout */}
-              <button
-                type="button"
-                onClick={onLogout}
-                className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl shadow-sm transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4 shrink-0" />
-                <span>Keluar</span>
-              </button>
-            </div>
-          ) : (
-            /* Tampilan Logout saat Sidebar Mengecil (Collapsed) */
+          {/* MENU UTAMA: Reservasi (Berdiri sendiri di luar Master Data) */}
+          <div className="w-full">
             <button
               type="button"
-              onClick={onLogout}
-              className="flex items-center justify-center w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-xl shadow-sm transition cursor-pointer"
-              title="Keluar Akun"
+              onClick={() => handleMenuClick('reservasi')}
+              className={`w-full flex items-center gap-3 px-4 py-3 font-semibold text-xs transition cursor-pointer justify-start ${
+                activeTab === 'reservasi'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-l-4 border-amber-500'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#262833]'
+              }`}
+              title="Reservasi"
             >
-              <LogOut className="w-4 h-4 shrink-0" />
+              <CalendarCheck className="w-4 h-4 shrink-0 text-blue-500" />
+              {isSidebarOpen && <span className="truncate text-left">Reservasi</span>}
             </button>
-          )}
-        </div>
+          </div>
 
+        </nav>
       </aside>
 
-      {/* Pop-up Menu Melayang DI LUAR SIDEBAR */}
+      {/* Pop-up Menu Melayang untuk Master Data saat Sidebar Tertutup (Collapsed) */}
       {!isSidebarOpen && showPopup && !isModalOpen && (
         <div 
           ref={popupRef}

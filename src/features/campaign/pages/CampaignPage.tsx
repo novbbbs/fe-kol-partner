@@ -4,20 +4,12 @@ import Swal from 'sweetalert2';
 
 import ReusableTable from '../../../components/ReusableTable';
 import FilterDropdown from '../../../components/FilterDropdown';
-import { campaignApi } from '../../../components/apiService'; 
+import { PageHeader } from '../../../components/ui/PageHeader'; // <-- Menggunakan pondasi PageHeader
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'; 
+import { campaignService } from '../services/campaign.service'; 
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../components/ui/alert-dialog';
 
 // Import komponen modal terpisah
 import CampaignCreateModal from '../components/CampaignCreateModal';
@@ -47,11 +39,11 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
   const [statusItem, setStatusItem] = useState<Campaign | null>(null);
   const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
 
-  // Fungsi Fetch Data Campaign Menggunakan campaignApi Terpusat
+  // Fungsi Fetch Data Campaign menggunakan campaignService modular
   const fetchCampaigns = async (params?: { search?: string; status?: string }) => {
     try {
-      const response = await campaignApi.getAll(params);
-      const rawData = Array.isArray(response) ? response : response.data || [];
+      const response = await campaignService.getAllCampaigns(params);
+      const rawData = Array.isArray(response) ? response : (response as any)?.data || [];
       setCampaignList(rawData);
     } catch (error) {
       console.error('Gagal mengambil data campaign:', error);
@@ -74,12 +66,10 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
 
   const filteredCampaigns = campaignList;
 
-  // Saat Switch diklik, buka dialog konfirmasi status terlebih dahulu
   const handleToggleStatus = (item: Campaign) => {
     setStatusItem(item);
   };
 
-  // Eksekusi perubahan status setelah tombol "Ya, Ubah" ditekan pada dialog
   const handleConfirmToggleStatus = async () => {
     if (!statusItem) return;
 
@@ -96,7 +86,7 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
     const newStatusInt = isCurrentlyActive ? 0 : 1;
 
     try {
-      await campaignApi.update(targetId, {
+      await campaignService.updateCampaign(targetId, {
         campaign_name: statusItem.campaign_name,
         status: newStatusInt
       });
@@ -151,9 +141,9 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
 
     try {
       if (activeEditTarget && activeEditTarget.id) {
-        await campaignApi.update(activeEditTarget.id, payload);
+        await campaignService.updateCampaign(activeEditTarget.id, payload);
       } else {
-        await campaignApi.create(payload);
+        await campaignService.createCampaign(payload);
       }
 
       await fetchCampaigns({
@@ -167,7 +157,8 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
           ? `Data Campaign ${pendingFormData.campaign_name} berhasil diperbarui.` 
           : `Campaign ${pendingFormData.campaign_name} berhasil ditambahkan.`,
         icon: 'success',
-        confirmButtonColor: '#10b981'
+        timer: 1500,
+        showConfirmButton: false
       });
     } catch (error: any) {
       console.error('Gagal menyimpan campaign:', error);
@@ -182,7 +173,7 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
   const handleConfirmDelete = async () => {
     if (!deleteItem || !deleteItem.id) return;
     try {
-      await campaignApi.delete(deleteItem.id);
+      await campaignService.deleteCampaign(deleteItem.id);
       await fetchCampaigns({
         search: debouncedSearch,
         status: statusFilter,
@@ -193,7 +184,8 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         title: 'Terhapus!',
         text: 'Data Campaign berhasil dihapus.',
         icon: 'success',
-        confirmButtonColor: '#10b981'
+        timer: 1500,
+        showConfirmButton: false
       });
     } catch (error: any) {
       setDeleteItem(null);
@@ -202,12 +194,13 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
     }
   };
 
-  // Header kolom diubah menjadi huruf biasa (Title Case)
+  // Menambahkan properti 'label' agar nama di dropdown kolom sama persis dengan header tabel
   const columns = [
     {
       accessorKey: 'id',
       header: () => <div className="text-center">ID</div>,
-      cell: ({ row }: any) => <div className="text-center font-normal text-slate-800 dark:text-white">{row.index + 1}</div>
+      cell: ({ row }: any) => <div className="text-center font-normal text-slate-800 dark:text-white">{row.index + 1}</div>,
+      label: 'ID'
     },
     {
       accessorKey: 'campaign_name',
@@ -216,7 +209,8 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         <div className="text-center justify-center flex w-full">
           <span className="font-normal text-center block text-slate-800 dark:text-white">{row.original?.campaign_name || '-'}</span>
         </div>
-      )
+      ),
+      label: 'Nama Campaign'
     },
     {
       accessorKey: 'status',
@@ -239,7 +233,8 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
             />
           </div>
         );
-      }
+      },
+      label: 'Status'
     },
     {
       accessorKey: 'actions',
@@ -278,27 +273,24 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
             <Trash2 className="w-4 h-4" />
           </Badge>
         </div>
-      )
+      ),
+      label: 'Aksi'
     }
   ];
 
   return (
     <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm">
-      <div className={`w-full rounded-none shadow-sm border overflow-visible transition-colors duration-300 ${
+      {/* KONTINER UTAMA */}
+      <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
-        <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2e303a]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
-              <Megaphone className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                Master Campaign
-              </h2>
-            </div>
-          </div>
-
+        
+        {/* MENGGUNAKAN PAGE HEADER MODULAR */}
+        <PageHeader 
+          icon={<Megaphone className="w-5 h-5" />}
+          title="Master Campaign"
+          isDarkMode={isDarkMode}
+        >
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative w-full sm:w-72">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -327,21 +319,24 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
                 <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-[#16171d] pointer-events-none z-20" />
               )}
 
-              <FilterDropdown
-                isOpen={isFilterOpen}
-                onClose={() => setIsFilterOpen(false)}
-                onApplyFilter={(filters) => {
-                  setStatusFilter(filters.status);
-                }}
-                isDarkMode={isDarkMode}
-                title="Filter Status Campaign"
-                showDateFilter={false}
-                statusOptions={[
-                  { label: 'Semua Status', value: 'Semua Status' },
-                  { label: 'Active', value: 'Active' },
-                  { label: 'Non Active', value: 'Non Active' },
-                ]}
-              />
+              {/* Wrapper dropdown filter dengan posisi letak yang rapi */}
+              <div className="absolute right-0 top-full mt-2 z-50">
+                <FilterDropdown
+                  isOpen={isFilterOpen}
+                  onClose={() => setIsFilterOpen(false)}
+                  onApplyFilter={(filters) => {
+                    setStatusFilter(filters.status);
+                  }}
+                  isDarkMode={isDarkMode}
+                  title="Filter Status Campaign"
+                  showDateFilter={false}
+                  statusOptions={[
+                    { label: 'Semua Status', value: 'Semua Status' },
+                    { label: 'Active', value: 'Active' },
+                    { label: 'Non Active', value: 'Non Active' },
+                  ]}
+                />
+              </div>
             </div>
 
             <Button
@@ -357,10 +352,10 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
               <span>Tambah</span>
             </Button>
           </div>
-        </div>
+        </PageHeader>
 
         {/* Tabel Data */}
-        <div className="w-full [&_div]:border-none [&_table]:mb-0">
+        <div className="w-full">
           <ReusableTable
             data={filteredCampaigns}
             columns={columns}
@@ -409,148 +404,62 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         />
       )}
 
+      {/* --- MENGGUNAKAN CONFIRM DIALOG MODULAR --- */}
+
       {/* Dialog Konfirmasi Simpan Campaign */}
-      <AlertDialog open={Boolean(pendingFormData)} onOpenChange={() => setPendingFormData(null)}>
-        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
-          isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
-        }`}>
-          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
-            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-900/50">
-              <Save className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <AlertDialogTitle 
-                style={{ color: isDarkMode ? '#ffffff' : undefined }}
-                className="text-base font-bold tracking-tight text-slate-900 dark:text-white"
-              >
-                {selectedCampaignToEdit ? 'Konfirmasi Perubahan?' : 'Simpan Campaign Baru?'}
-              </AlertDialogTitle>
-              <AlertDialogDescription 
-                style={{ color: isDarkMode ? '#f3f4f6' : undefined }}
-                className="text-sm text-slate-500 dark:text-slate-100 leading-relaxed font-normal"
-              >
-                Apakah Anda yakin ingin {selectedCampaignToEdit ? 'memperbarui' : 'menambahkan'} campaign <span className="font-semibold text-emerald-600">{pendingFormData?.campaign_name}</span>?
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 bg-transparent border-0">
-            <AlertDialogCancel 
-              onClick={() => { setPendingFormData(null); setSelectedCampaignToEdit(null); }} 
-              className={`w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold transition-all ${
-                isDarkMode 
-                  ? 'bg-rose-600/20 text-rose-400 border border-rose-900/50 hover:bg-rose-600/30 hover:text-rose-300' 
-                  : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'
-              }`}
-            >
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmSave} 
-              className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg"
-            >
-              Ya, Simpan
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(pendingFormData)}
+        onOpenChange={(open) => !open && setPendingFormData(null)}
+        title={selectedCampaignToEdit ? 'Konfirmasi Perubahan?' : 'Simpan Campaign Baru?'}
+        description={
+          <>
+            Apakah Anda yakin ingin {selectedCampaignToEdit ? 'memperbarui' : 'menambahkan'} campaign{' '}
+            <span className="font-semibold text-emerald-600">{pendingFormData?.campaign_name}</span>?
+          </>
+        }
+        confirmText="Ya, Simpan"
+        onConfirm={handleConfirmSave}
+        onCancel={() => setSelectedCampaignToEdit(null)}
+        icon={<Save className="w-6 h-6" />}
+        variant="success"
+        isDarkMode={isDarkMode}
+      />
 
       {/* Dialog Konfirmasi Ubah Status Campaign */}
-      <AlertDialog open={Boolean(statusItem)} onOpenChange={() => setStatusItem(null)}>
-        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
-          isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
-        }`}>
-          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
-            <div className={`mx-auto sm:mx-0 w-12 h-12 rounded-2xl flex items-center justify-center border ${
-              isDarkMode 
-                ? 'bg-emerald-950/50 text-emerald-400 border-emerald-900/50' 
-                : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-            }`}>
-              <Megaphone className="w-6 h-6" />
-            </div>
-
-            <div className="space-y-1">
-              <AlertDialogTitle 
-                style={{ color: isDarkMode ? '#ffffff' : undefined }}
-                className="text-base font-bold tracking-tight text-slate-900 dark:text-white"
-              >
-                Ubah Status Campaign?
-              </AlertDialogTitle>
-              
-              <AlertDialogDescription 
-                style={{ color: isDarkMode ? '#f3f4f6' : undefined }}
-                className="text-sm text-slate-500 dark:text-slate-100 leading-relaxed font-normal"
-              >
-                Apakah Anda yakin ingin mengubah status campaign <span className={`font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{statusItem?.campaign_name}</span>?
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 bg-transparent border-0">
-            <AlertDialogCancel 
-              onClick={() => setStatusItem(null)}
-              className={`w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold transition-all ${
-                isDarkMode 
-                  ? 'bg-rose-600/20 text-rose-400 border border-rose-900/50 hover:bg-rose-600/30 hover:text-rose-300' 
-                  : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'
-              }`}
-            >
-              Batal
-            </AlertDialogCancel>
-            
-            <AlertDialogAction
-              onClick={handleConfirmToggleStatus}
-              className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
-            >
-              Ya, Ubah
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(statusItem)}
+        onOpenChange={(open) => !open && setStatusItem(null)}
+        title="Ubah Status Campaign?"
+        description={
+          <>
+            Apakah Anda yakin ingin mengubah status campaign{' '}
+            <span className={`font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{statusItem?.campaign_name}</span>?
+          </>
+        }
+        confirmText="Ya, Ubah"
+        onConfirm={handleConfirmToggleStatus}
+        icon={<Megaphone className="w-6 h-6" />}
+        variant="success"
+        isDarkMode={isDarkMode}
+      />
 
       {/* Dialog Konfirmasi Hapus Campaign */}
-      <AlertDialog open={Boolean(deleteItem)} onOpenChange={() => setDeleteItem(null)}>
-        <AlertDialogContent className={`rounded-3xl border p-6 shadow-2xl max-w-md ${
-          isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
-        }`}>
-          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
-            <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 border border-rose-100 dark:border-rose-900/50">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <AlertDialogTitle 
-                style={{ color: isDarkMode ? '#ffffff' : undefined }}
-                className="text-base font-bold tracking-tight text-slate-900 dark:text-white"
-              >
-                Hapus Campaign Ini?
-              </AlertDialogTitle>
-              <AlertDialogDescription 
-                style={{ color: isDarkMode ? '#f3f4f6' : undefined }}
-                className="text-sm text-slate-500 dark:text-slate-100 leading-relaxed font-normal"
-              >
-                Tindakan ini bersifat permanen. Data Campaign <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.campaign_name}</span> akan dihapus.
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 flex flex-col sm:flex-row gap-2 bg-transparent border-0">
-            <AlertDialogCancel 
-              onClick={() => setDeleteItem(null)} 
-              className={`w-full sm:w-1/2 rounded-xl h-10 text-sm font-semibold transition-all ${
-                isDarkMode 
-                  ? 'bg-rose-600/20 text-rose-400 border border-rose-900/50 hover:bg-rose-600/30 hover:text-rose-300' 
-                  : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'
-              }`}
-            >
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmDelete} 
-              className="w-full sm:w-1/2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-10 text-sm font-semibold shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
-            >
-              Ya, Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={Boolean(deleteItem)}
+        onOpenChange={(open) => !open && setDeleteItem(null)}
+        title="Hapus Campaign Ini?"
+        description={
+          <>
+            Tindakan ini bersifat permanen. Data Campaign{' '}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.campaign_name}</span> akan dihapus.
+          </>
+        }
+        confirmText="Ya, Hapus"
+        onConfirm={handleConfirmDelete}
+        icon={<Trash2 className="w-6 h-6" />}
+        variant="danger"
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }

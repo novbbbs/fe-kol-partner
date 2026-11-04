@@ -5,8 +5,11 @@ export const authService = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await api.post<LoginResponse>('/login', credentials);
     
-    if (response.data.access_token) {
-      localStorage.setItem('auth_token', response.data.access_token);
+    // Pastikan key respons sesuai dengan struktur dari backend (access_token / token)
+    const token = response.data.access_token || (response.data as any).token;
+    
+    if (token) {
+      localStorage.setItem('auth_token', token);
       if (response.data.user) {
         localStorage.setItem('user', JSON.stringify(response.data.user));
       }
@@ -17,11 +20,17 @@ export const authService = {
 
   async getCurrentUser() {
     try {
+      const token = this.getToken();
+      if (!token) return null;
+
       const response = await api.get('/user');
       if (response.data) {
-        localStorage.setItem('user', JSON.stringify(response.data));
+        // Handle jika struktur dari backend berupa { data: { ... } } atau langsung objek user
+        const userData = response.data.data || response.data;
+        localStorage.setItem('user', JSON.stringify(userData));
+        return userData;
       }
-      return response.data;
+      return null;
     } catch (error) {
       this.clearLocalAuth();
       return null;

@@ -1,57 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Moon, Sun, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './features/dashboard/pages/DashboardPage';
 import KolPage from './features/kol/pages/KolPage';
 import CampaignPage from './features/campaign/pages/CampaignPage';
+import ReservasiPage from './features/reservasi/pages/ReservasiPage'; // <-- Mengimpor ReservasiPage modular
 import { TooltipProvider } from './components/ui/tooltip';
 import { Toaster } from './components/ui/sonner';
 
-// Import disesuaikan ke folder features/Login (huruf L besar)
 import LoginPage from './features/Login/pages/LoginPage';
 import { authService } from './features/Login/services/authService';
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'kol' | 'campaign'>('dashboard');
+  // Murni mulai dari null agar pertama buka SELALU ke halaman login
+  const [user, setUser] = useState<any>(() => authService.getUser());
+  
+  // Tipe data activeTab mencakup 'dashboard' | 'kol' | 'campaign' | 'reservasi'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'kol' | 'campaign' | 'reservasi'>('dashboard');
+  
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
 
   // Status global untuk mendeteksi apakah modal form sedang terbuka
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Periksa sesi user saat aplikasi pertama kali dimuat
-  useEffect(() => {
-    const initAuth = async () => {
-      const token = authService.getToken();
-      if (token) {
-        const localUser = authService.getUser();
-        if (localUser) {
-          setUser(localUser);
-        }
-        
-        const currentUser = await authService.getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-        } else {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    };
-
-    initAuth();
-  }, []);
-
   const handleLogout = async () => {
     await authService.logout();
     setUser(null);
   };
 
-  // Konfigurasi style toast agar menyerupai desain contoh kustom
+  // Konfigurasi style toast
   const customToastOptions = {
     position: 'top-right' as const,
     richColors: true,
@@ -66,28 +44,18 @@ export default function App() {
     },
   };
 
-  // Tampilkan loading sebentar saat memeriksa sesi
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#121318] text-white">
-        <p className="text-sm font-medium animate-pulse">Memuat Saloka Partner...</p>
-      </div>
-    );
-  }
-
-  // JIKA BELUM LOGIN, TAMPILKAN HALAMAN LOGIN
+  // JIKA BELUM LOGIN / USER KOSONG, Wajib Tampilkan Halaman Login
   if (!user) {
     return (
       <>
         <Toaster {...customToastOptions} />
-        <LoginPage />
+        <LoginPage onLoginSuccess={(userData) => setUser(userData)} />
       </>
     );
   }
 
   return (
     <TooltipProvider>
-      {/* Pasang Toaster di root aplikasi */}
       <Toaster {...customToastOptions} />
 
       <div className={`min-h-screen flex overflow-x-hidden transition-colors duration-300 ${isDarkMode ? 'dark bg-[#121318] text-white' : 'bg-slate-50 text-slate-800'}`}>
@@ -106,7 +74,7 @@ export default function App() {
           />
         </div>
 
-        {/* Konten Utama: Margin kiri disesuaikan dengan w-60 sidebar */}
+        {/* Konten Utama */}
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ml-0 ${
           isSidebarOpen ? 'md:ml-60' : 'md:ml-20'
         }`}>
@@ -138,7 +106,8 @@ export default function App() {
                 isDarkMode ? 'text-white' : 'text-slate-900'
               }`}>
                 {activeTab === 'dashboard' ? 'Dashboard' : 
-                 activeTab === 'kol' ? 'KOL' : 'Campaign'}
+                 activeTab === 'kol' ? 'KOL' : 
+                 activeTab === 'campaign' ? 'Campaign' : 'Reservasi'}
               </h2>
             </div>
           </header>
@@ -147,6 +116,7 @@ export default function App() {
             {activeTab === 'dashboard' && <DashboardPage isDarkMode={isDarkMode} />}
             {activeTab === 'kol' && <KolPage isDarkMode={isDarkMode} isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} />}
             {activeTab === 'campaign' && <CampaignPage isDarkMode={isDarkMode} />}
+            {activeTab === 'reservasi' && <ReservasiPage isDarkMode={isDarkMode} />}
           </main>
         </div>
 

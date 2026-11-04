@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import FormModal from '../../../components/FormModal';
+import FormModal, { type FieldConfig } from '../../../components/FormModal';
 import type { Kol } from '../types/kol.type';
 
 interface KolEditModalProps {
@@ -26,7 +26,7 @@ export default function KolEditModal({
   onProvinceChange,
 }: KolEditModalProps) {
   
-  const editFields = useMemo(() => {
+  const editFields: FieldConfig[] = useMemo(() => {
     return [
       { name: 'name', label: 'Name', placeholder: 'Masukkan Name', required: true },
       { name: 'username', label: 'Username', placeholder: 'Masukkan Username', required: true },
@@ -34,7 +34,7 @@ export default function KolEditModal({
         name: 'whatsapp', 
         label: 'Whatsapp', 
         placeholder: 'Masukkan Whatsapp (11-14 digit)', 
-        type: 'number-only' as const,
+        type: 'number-only',
         minLength: 11,
         maxLength: 14,
         required: true 
@@ -42,7 +42,7 @@ export default function KolEditModal({
       { 
         name: 'province_name', 
         label: 'Provinsi', 
-        type: 'select' as const, 
+        type: 'select', 
         options: provinceOptions,
         required: true,
         onChange: (selectedVal: any, updateFormValue?: any) => {
@@ -56,14 +56,14 @@ export default function KolEditModal({
       { 
         name: 'city_name', 
         label: 'Kota Asal', 
-        type: 'select' as const, 
+        type: 'select', 
         options: cityOptions,
         required: true,
       },
       { 
         name: 'type', 
         label: 'Type (Campaign)', 
-        type: 'select' as const, 
+        type: 'select', 
         options: campaignOptions,
         required: true 
       }

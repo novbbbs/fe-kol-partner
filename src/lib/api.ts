@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://192.168.1.246:8000/api', // <-- Diarahkan sepenuhnya ke backend Laravel port 8000
+  baseURL: 'http://192.168.1.246:8000/api', // Spasi di awal sudah dihapus agar URL valid
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

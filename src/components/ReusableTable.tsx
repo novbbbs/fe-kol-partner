@@ -16,9 +16,13 @@ interface ReusableTableProps {
     accessorKey: string;
     header: any;
     cell?: (info: any) => ReactNode;
+    label?: string;
   }[];
   isDarkMode?: boolean;
   renderCardMobile?: (item: any, index: number) => ReactNode;
+  // Tambahkan props opsional ini untuk sinkronisasi luar
+  columnVisibility?: Record<string, boolean>;
+  onColumnVisibilityChange?: (visibility: Record<string, boolean>) => void;
 }
 
 export default function ReusableTable({
@@ -26,12 +30,29 @@ export default function ReusableTable({
   columns,
   isDarkMode = false,
   renderCardMobile,
+  columnVisibility: externalColumnVisibility,
+  onColumnVisibilityChange,
 }: ReusableTableProps) {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  
+  // Internal state sebagai fallback jika tidak dikontrol dari luar
+  const [internalColumnVisibility, setInternalColumnVisibility] = useState<Record<string, boolean>>({});
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Gunakan external jika ada, jika tidak pakai internal
+  const columnVisibility = externalColumnVisibility !== undefined ? externalColumnVisibility : internalColumnVisibility;
+
+  const setColumnVisibility = (updater: React.SetStateAction<Record<string, boolean>>) => {
+    const nextValue = typeof updater === 'function' ? updater(columnVisibility) : updater;
+    if (onColumnVisibilityChange) {
+      onColumnVisibilityChange(nextValue);
+    }
+    if (externalColumnVisibility === undefined) {
+      setInternalColumnVisibility(nextValue);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -65,7 +86,9 @@ export default function ReusableTable({
   };
 
   return (
-    <div className="w-full space-y-0 overflow-hidden relative rounded-none">
+    <div className={`w-full space-y-0 relative rounded-none border-t-0 ${
+      isDarkMode ? 'bg-[#1f2028] text-slate-300' : 'bg-white text-slate-600'
+    }`}>
       <style>{`
         ::-webkit-scrollbar {
           display: none !important;
@@ -88,25 +111,24 @@ export default function ReusableTable({
       `}</style>
 
       {/* Toolbar Atas (Pagination & Kontrol) */}
-      <div className={`px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-b text-sm rounded-none ${
+      <div className={`px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-b text-sm rounded-none ${
         isDarkMode ? 'border-[#2e303a] bg-[#1f2028] text-slate-300' : 'border-slate-100 bg-white text-slate-600'
       }`}>
         <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
-          {/* Tombol Kolom */}
           <div className="hidden sm:block relative" ref={dropdownRef}>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsColumnDropdownOpen((prev) => !prev)}
-              className="gap-1.5 h-9 px-3 text-sm cursor-pointer rounded-none"
+              className="gap-1.5 h-9 px-3.5 text-sm cursor-pointer rounded-xl shadow-2xs"
             >
               <SlidersHorizontal className="w-4 h-4" />
               <span>Kolom</span>
             </Button>
 
             {isColumnDropdownOpen && (
-              <div className={`absolute left-0 mt-2 w-52 p-3.5 rounded-none shadow-xl border z-50 space-y-2.5 ${
+              <div className={`absolute left-0 mt-2 w-52 p-3.5 rounded-2xl shadow-xl border z-50 space-y-2.5 ${
                 isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
               }`}>
                 <p className="text-xs font-semibold text-slate-400 mb-1">Tampilkan Kolom:</p>
@@ -114,21 +136,18 @@ export default function ReusableTable({
                   const colKey = col.accessorKey;
                   if (colKey === 'id' || colKey === 'actions') return null;
                   const isVisible = columnVisibility[colKey] !== false;
+                  
+                  const displayLabel = col.label || colKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+
                   return (
                     <label key={colKey} className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={isVisible}
                         onChange={() => toggleColumn(colKey)}
-                        className="rounded-none text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4"
+                        className="rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4"
                       />
-                      <span>
-                        {colKey === 'campaign_start_date' 
-                          ? 'Mulai Campaign' 
-                          : colKey === 'campaign_end_date' 
-                          ? 'Selesai Campaign' 
-                          : colKey.replace(/_/g, ' ')}
-                      </span>
+                      <span>{displayLabel}</span>
                     </label>
                   );
                 })}
@@ -136,7 +155,6 @@ export default function ReusableTable({
             )}
           </div>
 
-          {/* Rows per page */}
           <div className="hidden sm:flex items-center gap-2">
             <span className="text-slate-400 text-sm">Rows</span>
             <select
@@ -152,15 +170,22 @@ export default function ReusableTable({
             </select>
           </div>
 
-          {/* Page X of Y */}
-          <span className="font-bold text-slate-800 dark:text-white tracking-wide whitespace-nowrap text-sm">
+          <span className="hidden sm:inline-block font-bold text-slate-800 dark:text-white tracking-wide text-sm ml-2">
             Page {currentPage} of {totalPages}
           </span>
+
+          <div className="flex sm:hidden items-center justify-between w-full">
+            <span className="font-bold text-slate-800 dark:text-white tracking-wide text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <span className="text-slate-600 dark:text-slate-300 text-sm font-medium">
+              {startIndex}-{endIndex} of {totalItems}
+            </span>
+          </div>
         </div>
 
-        {/* Bagian Kanan: Rentang Data & Navigasi Panah */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-          <span className="text-slate-600 dark:text-slate-300 text-sm">
+        <div className="hidden sm:flex items-center justify-end gap-3 w-auto">
+          <span className="text-slate-600 dark:text-slate-300 text-sm mr-1">
             {startIndex}-{endIndex} of {totalItems}
           </span>
 
@@ -189,11 +214,11 @@ export default function ReusableTable({
         </div>
       </div>
 
-      {/* TAMPILAN TABEL UTAMA (Muncul di semua ukuran layar untuk Campaign, atau Desktop untuk KOL) */}
-      <div className={`w-full border-b border-slate-200 dark:border-[#2e303a] overflow-x-auto rounded-none ${renderCardMobile ? 'hidden md:block' : 'block'}`}>
-        <Table className={`rounded-none w-full ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+      {/* TAMPILAN TABEL UTAMA */}
+      <div className={`w-full overflow-x-auto ${renderCardMobile ? 'hidden md:block' : 'block'}`}>
+        <Table className={`w-full ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
           <TableHeader>
-            <TableRow className={`rounded-none ${isDarkMode ? 'border-t border-b border-[#2e303a] bg-[#16171d]/80 text-white font-bold' : 'border-t border-b border-slate-200 bg-slate-50 text-slate-900 font-bold'}`}>
+            <TableRow className={`${isDarkMode ? 'border-b border-[#2e303a] bg-[#16171d]/80 text-white font-bold' : 'border-b border-slate-200 bg-slate-50 text-slate-900 font-bold'}`}>
               {columns.map((col) => {
                 const colKey = col.accessorKey;
                 if (colKey !== 'id' && colKey !== 'actions' && columnVisibility[colKey] === false) return null;
@@ -208,7 +233,7 @@ export default function ReusableTable({
                 return (
                   <TableHead 
                     key={colKey} 
-                    className={`h-11 px-4 align-middle font-bold tracking-wider text-xs border-r last:border-r-0 rounded-none whitespace-nowrap ${alignClass} ${
+                    className={`h-11 px-4 align-middle font-bold tracking-wider text-xs border-r last:border-r-0 whitespace-nowrap ${alignClass} ${
                       isDarkMode ? 'border-[#2e303a] text-white' : 'border-slate-200 text-slate-700'
                     }`}
                   >
@@ -218,10 +243,10 @@ export default function ReusableTable({
               })}
             </TableRow>
           </TableHeader>
-          <TableBody className={`rounded-none ${isDarkMode ? 'divide-y divide-[#2e303a]' : 'divide-y divide-slate-100'}`}>
+          <TableBody className={`${isDarkMode ? 'divide-y divide-[#2e303a]' : 'divide-y divide-slate-100'}`}>
             {paginatedData.length === 0 ? (
-              <TableRow className="rounded-none">
-                <TableCell colSpan={columns.length} className="text-center py-10 text-slate-400 rounded-none text-sm">
+              <TableRow>
+                <TableCell colSpan={columns.length} className="text-center py-10 text-slate-400 text-sm">
                   Tidak ada data ditemukan.
                 </TableCell>
               </TableRow>
@@ -231,7 +256,7 @@ export default function ReusableTable({
                 return (
                   <TableRow 
                     key={item.id || rowIndex} 
-                    className={`rounded-none transition-colors ${
+                    className={`transition-colors ${
                       isDarkMode 
                         ? 'hover:bg-[#262833]/40 border-[#2e303a]' 
                         : 'hover:bg-slate-50/80 border-slate-100'
@@ -256,7 +281,7 @@ export default function ReusableTable({
                       return (
                         <TableCell 
                           key={colKey} 
-                          className={`py-3 px-4 align-middle text-sm border-r last:border-r-0 rounded-none whitespace-nowrap ${alignClass} ${
+                          className={`py-3 px-4 align-middle text-sm border-r last:border-r-0 whitespace-nowrap ${alignClass} ${
                             isDarkMode ? 'border-[#2e303a]' : 'border-slate-100'
                           }`}
                         >
@@ -272,9 +297,8 @@ export default function ReusableTable({
         </Table>
       </div>
 
-      {/* TAMPILAN MOBILE KARTU (Hanya aktif jika renderCardMobile disediakan, seperti di halaman KOL) */}
       {renderCardMobile && (
-        <div className="block md:hidden space-y-3 px-3 pb-3 pt-3 rounded-none">
+        <div className="block md:hidden space-y-3 px-3 pb-3 pt-3">
           {paginatedData.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">Tidak ada data ditemukan.</div>
           ) : (

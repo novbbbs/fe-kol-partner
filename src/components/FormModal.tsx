@@ -14,7 +14,6 @@ import {
   Plus,
   Save,
   AlertCircle,
-  Ticket,
 } from 'lucide-react';
 import { DatePicker } from './ui/date-picker';
 import {
@@ -23,7 +22,7 @@ import {
   AlertDescription,
 } from './ui/alert';
 
-interface FieldConfig {
+export interface FieldConfig {
   name: string;
   label: string;
   type?: 'text' | 'select' | 'date' | 'number-only' | 'textarea';
@@ -55,28 +54,7 @@ interface FormModalProps {
 }
 
 /* =========================================================
-   GENERATE RANDOM REFERRAL
-========================================================= */
-
-const generateRandomReferral = () => {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let randomLetters = '';
-
-  for (let i = 0; i < 3; i++) {
-    randomLetters += letters.charAt(
-      Math.floor(Math.random() * letters.length)
-    );
-  }
-
-  const randomNumbers = Math.floor(
-    10000 + Math.random() * 90000
-  );
-
-  return `${randomLetters}${randomNumbers}`;
-};
-
-/* =========================================================
-   SEARCHABLE SELECT
+   SEARCHABLE SELECT (REUSABLE)
 ========================================================= */
 
 function SearchableSelect({
@@ -292,7 +270,7 @@ function SearchableSelect({
                         : idx
                     }
                     onClick={() => {
-                      onChange(opt.label);
+                      onChange(opt.value !== '' ? opt.value : '');
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
@@ -327,7 +305,7 @@ function SearchableSelect({
 }
 
 /* =========================================================
-   FORM MODAL
+   BASE FORM MODAL TEMPLATE
 ========================================================= */
 
 export default function FormModal({
@@ -340,340 +318,92 @@ export default function FormModal({
   fields,
   isDarkMode = false,
 }: FormModalProps) {
-  const [formData, setFormData] =
-    useState<Record<string, any>>({});
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
-  const [validationError, setValidationError] =
-    useState<string | null>(null);
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isEditMode = Boolean(initialData);
-  const formDataRef =
-    useRef<Record<string, any>>({});
 
-  formDataRef.current = formData;
-
+  // PERBAIKAN UTAMA: Hanya jalankan saat modal pertama kali dibuka (isOpen berubah menjadi true)
   useEffect(() => {
     if (!isOpen) return;
 
     setValidationError(null);
 
     if (initialData) {
-      const normalizedInitial = {
-        ...initialData,
-      };
-
-      const provVal =
-        normalizedInitial.province_name ||
-        normalizedInitial.provinsi ||
-        '';
-
-      const cleanProv =
-        typeof provVal === 'object' &&
-        provVal !== null
-          ? provVal.value ||
-            provVal.label ||
-            ''
-          : String(provVal);
-
-      normalizedInitial.province_name =
-        cleanProv;
-      normalizedInitial.provinsi =
-        cleanProv;
-
-      const cityVal =
-        normalizedInitial.city_name ||
-        normalizedInitial.kota_asal ||
-        '';
-
-      const cleanCity =
-        typeof cityVal === 'object' &&
-        cityVal !== null
-          ? cityVal.value ||
-            cityVal.label ||
-            ''
-          : String(cityVal);
-
-      normalizedInitial.city_name =
-        cleanCity;
-      normalizedInitial.kota_asal =
-        cleanCity;
-
-      setFormData(normalizedInitial);
+      setFormData({ ...initialData });
     } else {
-      const initialValues: Record<
-        string,
-        any
-      > = {};
+      const initialValues: Record<string, any> = {};
 
       fields.forEach((field) => {
-        if (
-          field.name === 'kode_referral' ||
-          field.name === 'referral_code'
-        ) {
-          initialValues[field.name] =
-            generateRandomReferral();
-        } else if (
-          field.defaultValue !== undefined
-        ) {
-          initialValues[field.name] =
-            field.defaultValue;
-        } else if (
-          field.value !== undefined
-        ) {
-          initialValues[field.name] =
-            field.value;
+        if (field.defaultValue !== undefined) {
+          initialValues[field.name] = field.defaultValue;
+        } else if (field.value !== undefined) {
+          initialValues[field.name] = field.value;
         } else {
           initialValues[field.name] = '';
         }
       });
 
-      if (
-        !initialValues.type &&
-        !initialValues.tipe_kol
-      ) {
-        const hasTypeField =
-          fields.some(
-            (f) =>
-              f.name === 'type' ||
-              f.name === 'tipe_kol'
-          );
-
-        if (!hasTypeField) {
-          initialValues.type = 'Reguler';
-        }
-      }
-
       setFormData(initialValues);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen]); // Hapus 'fields' dan 'initialData' dari dependency agar tidak mereset saat user mengetik/memilih select!
 
-  const updateFormValue = (
-    fieldName: string,
-    value: any
-  ) => {
-    let cleanVal = value;
-
-    if (
-      typeof cleanVal === 'object' &&
-      cleanVal !== null
-    ) {
-      cleanVal =
-        cleanVal.value ||
-        cleanVal.label ||
-        '';
-    }
-
-    setFormData((prev) => {
-      const updated = {
-        ...prev,
-        [fieldName]: cleanVal,
-      };
-
-      if (fieldName === 'province_name') {
-        updated.provinsi = cleanVal;
-      }
-      if (fieldName === 'provinsi') {
-        updated.province_name = cleanVal;
-      }
-      if (fieldName === 'city_name') {
-        updated.kota_asal = cleanVal;
-      }
-      if (fieldName === 'kota_asal') {
-        updated.city_name = cleanVal;
-      }
-
-      return updated;
-    });
+  const updateFormValue = (fieldName: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
   };
 
-  const handleChange = (
-    field: FieldConfig,
-    value: any
-  ) => {
+  const handleChange = (field: FieldConfig, value: any) => {
     setValidationError(null);
     let newValue = value;
-
-    if (
-      field.name === 'province_name' ||
-      field.name === 'provinsi' ||
-      field.name === 'city_name' ||
-      field.name === 'kota_asal' ||
-      field.type === 'select'
-    ) {
-      if (
-        typeof newValue === 'object' &&
-        newValue !== null
-      ) {
-        newValue =
-          newValue.value ||
-          newValue.label ||
-          '';
-      }
-    }
 
     if (
       field.type === 'number-only' ||
       field.name === 'whatsapp'
     ) {
-      newValue = String(newValue).replace(
-        /\D/g,
-        ''
-      );
-
-      const maxLen =
-        field.name === 'whatsapp'
-          ? 15
-          : field.maxLength || 15;
-
+      newValue = String(newValue).replace(/\D/g, '');
+      const maxLen = field.maxLength || 15;
       if (newValue.length > maxLen) {
-        newValue =
-          newValue.slice(0, maxLen);
+        newValue = newValue.slice(0, maxLen);
       }
     }
 
-    setFormData((prev) => {
-      const updated = {
-        ...formDataRef.current,
-        ...prev,
-        [field.name]: newValue,
-      };
+    setFormData((prev) => ({
+      ...prev,
+      [field.name]: newValue,
+    }));
 
-      if (field.name === 'province_name') {
-        updated.provinsi = newValue;
-      }
-      if (field.name === 'provinsi') {
-        updated.province_name = newValue;
-      }
-      if (field.name === 'city_name') {
-        updated.kota_asal = newValue;
-      }
-      if (field.name === 'kota_asal') {
-        updated.city_name = newValue;
-      }
-
-      return updated;
-    });
-
-    if (
-      typeof field.onChange === 'function'
-    ) {
-      field.onChange(
-        newValue,
-        updateFormValue
-      );
+    if (typeof field.onChange === 'function') {
+      field.onChange(newValue, updateFormValue);
     }
   };
 
-  const handleSubmit = async (
-    e: React.FormEvent
-  ) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
 
     try {
       setIsSubmitting(true);
-
-      const resolvedName =
-        formData.name ||
-        formData.campaign_name ||
-        formData.nama_kol ||
-        formData.title ||
-        '';
-
-      const resolvedProvince =
-        formData.province_name ||
-        formData.provinsi ||
-        '';
-
-      const resolvedCity =
-        formData.city_name ||
-        formData.kota_asal ||
-        '';
-
-      const finalPayload = {
-        ...formData,
-        name: resolvedName,
-        campaign_name: resolvedName,
-        whatsapp: String(
-          formData.whatsapp || ''
-        ).replace(/\D/g, ''),
-        type:
-          formData.type ||
-          formData.tipe_kol ||
-          'Reguler',
-        province_name:
-          resolvedProvince,
-        provinsi:
-          resolvedProvince,
-        city_name:
-          resolvedCity,
-        kota_asal:
-          resolvedCity,
-      };
-
-      if (!resolvedName) {
-        setValidationError(
-          'Nama atau judul wajib diisi.'
-        );
-        setIsSubmitting(false);
-        return;
-      }
-
-      await onSubmitSuccess(
-        finalPayload
-      );
+      await onSubmitSuccess(formData);
       setIsSubmitting(false);
     } catch (error) {
-      console.error(
-        'Gagal menyimpan form:',
-        error
-      );
+      console.error('Gagal menyimpan form:', error);
       setIsSubmitting(false);
     }
   };
 
-  const referralField = fields.find(
-    (f) =>
-      f.name === 'kode_referral' ||
-      f.name === 'referral_code'
-  );
-
-  const otherFields = fields.filter(
-    (f) =>
-      f.name !== 'kode_referral' &&
-      f.name !== 'referral_code'
-  );
-
-  const referralVal = referralField
-    ? formData[
-        referralField.name
-      ] ||
-      referralField.value ||
-      ''
-    : '';
-
-  const fullTitle = `${titleCreate} ${titleEdit}`.toLowerCase();
-  const isCampaignForm =
-    fullTitle.includes('campaign') &&
-    otherFields.length === 1 &&
-    ['campaign_name', 'name', 'title'].includes(otherFields[0]?.name);
+  const isSimpleForm = fields.length <= 2;
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={onClose}
-    >
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         style={{
           width: '94vw',
-          maxWidth: isCampaignForm
-            ? '540px'
-            : '980px',
-          backgroundColor:
-            isDarkMode
-              ? '#1f2028'
-              : '#ffffff',
+          maxWidth: isSimpleForm ? '540px' : '980px',
+          backgroundColor: isDarkMode ? '#1f2028' : '#ffffff',
         }}
         className={`rounded-xl border-0 p-0 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-none overflow-visible ${
           isDarkMode
@@ -689,9 +419,7 @@ export default function FormModal({
 
             <DialogHeader className="space-y-0.5 text-left">
               <DialogTitle className="text-base font-bold tracking-tight">
-                {isEditMode
-                  ? titleEdit
-                  : titleCreate}
+                {isEditMode ? titleEdit : titleCreate}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
                 {isEditMode
@@ -706,13 +434,7 @@ export default function FormModal({
           onSubmit={handleSubmit}
           className="flex flex-col flex-1 overflow-visible"
         >
-          <div
-            className={`${
-              isCampaignForm
-                ? 'p-6'
-                : 'p-6 space-y-4'
-            } max-h-[65vh] sm:max-h-none overflow-y-auto sm:overflow-visible flex-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700`}
-          >
+          <div className="p-6 space-y-4 max-h-[65vh] sm:max-h-none overflow-y-auto sm:overflow-visible flex-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700">
             {validationError && (
               <Alert
                 variant="destructive"
@@ -729,222 +451,112 @@ export default function FormModal({
             )}
 
             <div
-              className={`${
-                isCampaignForm
-                  ? 'px-5 py-5 rounded-lg'
-                  : 'px-6 py-6 rounded-lg'
-              } border overflow-visible ${
+              className={`px-6 py-6 rounded-lg border overflow-visible ${
                 isDarkMode
                   ? 'bg-[#16171d]/60 border-[#2e303a]'
                   : 'bg-white border-slate-200 shadow-sm'
               }`}
             >
-              {referralField && (
-                <div className="mb-5 pb-5 border-b border-slate-200 dark:border-[#2e303a] flex flex-col items-center justify-center text-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    {referralField.label}
-                  </span>
-                  <div className="inline-flex items-center gap-2 font-mono text-base font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-[#16171d] px-4 py-1.5 rounded-lg border border-slate-200 dark:border-[#2e303a]">
-                    <Ticket className="w-4 h-4 text-emerald-500" />
-                    <span>
-                      {referralVal || '---'}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               <div
                 className={`grid ${
-                  isCampaignForm
+                  isSimpleForm
                     ? 'grid-cols-1 gap-y-3'
-                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-5'
+                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-x-5 gap-y-5'
                 } overflow-visible`}
               >
-                {otherFields.map(
-                  (field) => {
-                    const isTextarea =
-                      field.type ===
-                      'textarea';
+                {fields.map((field) => {
+                  const isTextarea = field.type === 'textarea';
+                  const fieldValue = formData[field.name] !== undefined && formData[field.name] !== null ? formData[field.name] : '';
 
-                    const rawVal =
-                      formData[
-                        field.name
-                      ];
-
-                    let fieldValue =
-                      rawVal !==
-                        undefined &&
-                      rawVal !== null
-                        ? typeof rawVal ===
-                          'object'
-                          ? rawVal.value !==
-                            undefined
-                            ? rawVal.value
-                            : rawVal.label
-                          : rawVal
-                        : field.value !==
-                          undefined
-                        ? field.value
-                        : '';
-
-                    if (
-                      typeof fieldValue ===
-                        'object' &&
-                      fieldValue !== null
-                    ) {
-                      fieldValue =
-                        fieldValue.value ||
-                        fieldValue.label ||
-                        '';
-                    }
-
-                    return (
-                      <div
-                        key={
-                          field.name
-                        }
-                        className={`space-y-1.5 relative overflow-visible ${
-                          isTextarea
-                            ? 'lg:col-span-4'
-                            : ''
-                        }`}
-                      >
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-                          {field.label}
-                          {field.required && (
-                            <span className="text-rose-500 ml-0.5">
-                              *
-                            </span>
-                          )}
-                        </label>
-
-                        {field.type ===
-                        'date' ? (
-                          <DatePicker
-                            value={
-                              fieldValue
-                            }
-                            onChange={(
-                              dateString
-                            ) =>
-                              handleChange(
-                                field,
-                                dateString
-                              )
-                            }
-                            placeholder={
-                              field.placeholder ||
-                              'DD MM YYYY'
-                            }
-                            isDarkMode={
-                              isDarkMode
-                            }
-                          />
-                        ) : field.type ===
-                          'select' ? (
-                          <SearchableSelect
-                            options={
-                              field.options ||
-                              []
-                            }
-                            value={
-                              fieldValue
-                            }
-                            onChange={(
-                              val
-                            ) =>
-                              handleChange(
-                                field,
-                                val
-                              )
-                            }
-                            placeholder={`Pilih ${field.label}`}
-                            isDarkMode={
-                              isDarkMode
-                            }
-                          />
-                        ) : isTextarea ? (
-                          <textarea
-                            rows={3}
-                            required={
-                              field.required
-                            }
-                            value={
-                              fieldValue
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleChange(
-                                field,
-                                e.target.value
-                              )
-                            }
-                            placeholder={
-                              field.placeholder ||
-                              `Masukkan ${field.label}`
-                            }
-                            className={`w-full p-3 rounded-lg border text-sm outline-none transition resize-none font-medium ${
-                              isDarkMode
-                                ? 'bg-[#16171d] border-[#2e303a] text-white'
-                                : 'bg-white border-slate-200 text-slate-800'
-                            }`}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            inputMode={
-                              field.type ===
-                                'number-only' ||
-                              field.name ===
-                                'whatsapp'
-                                ? 'numeric'
-                                : 'text'
-                            }
-                            required={
-                              field.required
-                            }
-                            maxLength={
-                              field.name ===
-                              'whatsapp'
-                                ? 15
-                                : field.maxLength ||
-                                  525
-                            }
-                            value={
-                              fieldValue
-                            }
-                            onChange={(e) =>
-                              handleChange(
-                                field,
-                                e.target.value
-                              )
-                            }
-                            placeholder={
-                              field.placeholder ||
-                              `Masukkan ${field.label}`
-                            }
-                            className={`w-full h-11 px-3.5 rounded-lg border text-sm outline-none transition font-medium ${
-                              isDarkMode
-                                ? 'bg-[#16171d] border-[#2e303a] text-white'
-                                : 'bg-white border-slate-200 text-slate-800'
-                            }`}
-                          />
+                  return (
+                    <div
+                      key={field.name}
+                      className={`space-y-1.5 relative overflow-visible ${
+                        isTextarea ? 'lg:col-span-2' : ''
+                      }`}
+                    >
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+                        {field.label}
+                        {field.required && (
+                          <span className="text-rose-500 ml-0.5">*</span>
                         )}
-                      </div>
-                    );
-                  }
-                )}
+                      </label>
+
+                      {field.type === 'date' ? (
+                        <DatePicker
+                          value={fieldValue}
+                          onChange={(dateString) =>
+                            handleChange(field, dateString)
+                          }
+                          placeholder={
+                            field.placeholder || 'DD MM YYYY'
+                          }
+                          isDarkMode={isDarkMode}
+                        />
+                      ) : field.type === 'select' ? (
+                        <SearchableSelect
+                          options={field.options || []}
+                          value={fieldValue}
+                          onChange={(val) =>
+                            handleChange(field, val)
+                          }
+                          placeholder={field.placeholder || `Pilih ${field.label}`}
+                          isDarkMode={isDarkMode}
+                        />
+                      ) : isTextarea ? (
+                        <textarea
+                          rows={3}
+                          required={field.required}
+                          value={fieldValue}
+                          onChange={(e) =>
+                            handleChange(field, e.target.value)
+                          }
+                          placeholder={
+                            field.placeholder ||
+                            `Masukkan ${field.label}`
+                          }
+                          className={`w-full p-3 rounded-lg border text-sm outline-none transition resize-none font-medium ${
+                            isDarkMode
+                              ? 'bg-[#16171d] border-[#2e303a] text-white'
+                              : 'bg-white border-slate-200 text-slate-800'
+                          }`}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode={
+                            field.type === 'number-only' ||
+                            field.name === 'whatsapp'
+                              ? 'numeric'
+                              : 'text'
+                          }
+                          required={field.required}
+                          maxLength={field.maxLength || 525}
+                          value={fieldValue}
+                          onChange={(e) =>
+                            handleChange(field, e.target.value)
+                          }
+                          placeholder={
+                            field.placeholder ||
+                            `Masukkan ${field.label}`
+                          }
+                          className={`w-full h-11 px-3.5 rounded-lg border text-sm outline-none transition font-medium ${
+                            isDarkMode
+                              ? 'bg-[#16171d] border-[#2e303a] text-white'
+                              : 'bg-white border-slate-200 text-slate-800'
+                          }`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           <div
             style={{
-              backgroundColor:
-                isDarkMode
-                  ? '#1f2028'
-                  : '#ffffff',
+              backgroundColor: isDarkMode ? '#1f2028' : '#ffffff',
             }}
             className="p-4 px-6 border-t border-slate-200 dark:border-[#2e303a] flex items-center justify-end gap-3 shrink-0 rounded-b-xl"
           >
@@ -963,9 +575,7 @@ export default function FormModal({
             >
               <Save className="w-4 h-4" />
               <span>
-                {isSubmitting
-                  ? 'Menyimpan...'
-                  : 'Simpan'}
+                {isSubmitting ? 'Menyimpan...' : 'Simpan'}
               </span>
             </Button>
           </div>

@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { User, KeyRound, EyeOff, Eye, AlertCircle } from 'lucide-react';
 import { authService } from '../services/authService';
 
-export default function LoginPage() {
+interface LoginPageProps {
+  onLoginSuccess?: (user: any) => void;
+}
+
+export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,10 +26,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await authService.login({ username, password });
+      const response = await authService.login({ username, password });
       
-      // Refresh total ke halaman utama (/) agar App.tsx mendeteksi token baru
-      window.location.href = '/';
+      // Ambil data user dari respons login atau dari authService
+      const loggedInUser = response.user || authService.getUser() || { username };
+
+      // Jika prop onLoginSuccess tersedia, panggil agar App.tsx langsung masuk dashboard
+      if (onLoginSuccess) {
+        onLoginSuccess(loggedInUser);
+      } else {
+        // Fallback jika diakses mandiri
+        window.location.href = '/';
+      }
     } catch (err: any) {
       setErrorMessage(err.response?.data?.message || 'Login gagal. Periksa kembali username dan password Anda.');
     } finally {
@@ -62,7 +74,6 @@ export default function LoginPage() {
         {/* Card Login Putih */}
         <div className="w-full bg-white dark:bg-gray-900 rounded-2xl p-7 shadow-xl border border-gray-100/80 dark:border-gray-800 space-y-3 transition-all">
           
-          {/* Header dengan jarak sangat rapat dan tanpa margin bawaan berlebih */}
           <div className="text-left">
             <h1 
               className="font-bold tracking-tight whitespace-nowrap mb-0.0"

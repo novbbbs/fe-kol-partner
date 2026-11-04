@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import FormModal from '../../../components/FormModal';
+import FormModal, { type FieldConfig } from '../../../components/FormModal';
 
 interface CampaignCreateModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ export default function CampaignCreateModal({
   isDarkMode,
 }: CampaignCreateModalProps) {
   
-  const createFields = useMemo(() => {
+  const createFields: FieldConfig[] = useMemo(() => {
     return [
       { 
         name: 'campaign_name', 
@@ -33,7 +33,7 @@ export default function CampaignCreateModal({
       onSubmitSuccess={onSubmitSuccess}
       initialData={null}
       titleCreate="Tambah Campaign Baru"
-      titleEdit="Tambah Campaign Baru"
+      titleEdit="Edit Campaign"
       fields={createFields}
       isDarkMode={isDarkMode}
     />
