@@ -21,9 +21,12 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
   const [inputValue, setInputValue] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
+  const [namaKolFilter, setNamaKolFilter] = useState('');
+  const [typeKolFilter, setTypeKolFilter] = useState('');
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(inputValue), 400);
@@ -35,20 +38,23 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
       search: debouncedSearch, 
       status: statusFilter === 'Semua' ? undefined : statusFilter, 
       startDate: startDateFilter, 
-      endDate: endDateFilter 
-    });
-  }, [debouncedSearch, statusFilter, startDateFilter, endDateFilter, refetch]);
+      endDate: endDateFilter,
+      nama_kol: namaKolFilter || undefined,
+      type_kol: typeKolFilter || undefined,
+    } as any);
+  }, [debouncedSearch, statusFilter, startDateFilter, endDateFilter, namaKolFilter, typeKolFilter, refetch]);
 
   const filteredData = reservasis;
 
   const handleExportExcel = () => {
     try {
-      const worksheetData = filteredData.map((item: Reservasi, index: number) => ({
+      const worksheetData = filteredData.map((item: Reservasi & { kode_referral?: string }, index: number) => ({
         No: index + 1,
         'ID Order': item.id_order,
         'Kode Booking': item.kode_booking,
         Nama: item.nama,
         Email: item.email,
+        'Kode Referral': item.kode_referral || '-',
         'Nama KOL': item.nama_kol,
         'Type KOL': item.type_kol,
         'Total Bayar': item.total_bayar,
@@ -72,6 +78,18 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
     { accessorKey: 'kode_booking', header: () => <div className="text-center">Kode Booking</div>, cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-900">{row.original.kode_booking}</span></div>, label: 'Kode Booking' },
     { accessorKey: 'nama', header: () => <div className="text-left -ml-2">Nama</div>, cell: ({ row }: any) => <div className="text-left -ml-2 font-medium text-slate-800 dark:text-white">{row.original.nama}</div>, label: 'Nama' },
     { accessorKey: 'email', header: () => <div className="text-left -ml-2">Email</div>, cell: ({ row }: any) => <div className="text-left -ml-2 text-slate-600 dark:text-slate-400">{row.original.email}</div>, label: 'Email' },
+    { 
+      accessorKey: 'kode_referral', 
+      header: () => <div className="text-center">Kode Referral</div>, 
+      cell: ({ row }: any) => (
+        <div className="text-center">
+          <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-900">
+            {row.original.kode_referral || '-'}
+          </span>
+        </div>
+      ), 
+      label: 'Kode Referral' 
+    },
     { accessorKey: 'nama_kol', header: () => <div className="text-left -ml-2">Nama KOL</div>, cell: ({ row }: any) => <div className="text-left -ml-2 font-medium text-slate-700 dark:text-slate-300">{row.original.nama_kol}</div>, label: 'Nama KOL' },
     { accessorKey: 'type_kol', header: () => <div className="text-center">Type KOL</div>, cell: ({ row }: any) => <div className="text-center"><Badge variant="outline" className="text-[11px]">{row.original.type_kol}</Badge></div>, label: 'Type KOL' },
     { accessorKey: 'total_bayar', header: () => <div className="text-right">Total Bayar</div>, cell: ({ row }: any) => <div className="text-right font-mono text-slate-800 dark:text-white">Rp {Number(row.original.total_bayar || 0).toLocaleString('id-ID')}</div>, label: 'Total Bayar' },
@@ -98,13 +116,15 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
   ];
 
   return (
-    <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm">
-      <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+    <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-visible text-sm">
+      {/* Diubah dari overflow-hidden menjadi overflow-visible agar popup filter tidak terpotong */}
+      <div className={`w-full rounded-t-2xl shadow-sm border overflow-visible transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
         
         <PageHeader 
           icon={<CalendarCheck className="w-5 h-5" />}
           title="Data Reservasi"
           isDarkMode={isDarkMode}
+          className="overflow-visible"
         >
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 overflow-visible">
             <div className="relative w-full sm:w-72 overflow-visible">
@@ -135,9 +155,12 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
                   setStatusFilter(filters.status);
                   setStartDateFilter(filters.startDate || '');
                   setEndDateFilter(filters.endDate || '');
+                  setNamaKolFilter(filters.namaKol || '');
+                  setTypeKolFilter(filters.typeKol || '');
                 }}
                 isDarkMode={isDarkMode}
                 showDateFilter={true}
+                showKolFilters={true}
                 statusOptions={[
                   { label: 'Semua Status', value: 'Semua' },
                   { label: 'Success', value: 'Success' },

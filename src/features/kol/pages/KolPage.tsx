@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, FileSpreadsheet, Filter, Search, Edit2, Trash2, Ticket } from 'lucide-react';
+import { Plus, FileSpreadsheet, Filter, Search, Edit2, Ticket, RefreshCw, MoreHorizontal, Calendar } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -18,6 +18,12 @@ import {
   CardFooter 
 } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '../../../components/ui/dropdown-menu';
 import { useKol } from '../hooks/useKol';
 import type { Kol } from '../types/kol.type';
 
@@ -50,13 +56,16 @@ export default function KolPage({
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
 
-  const [deleteItem, setDeleteItem] = useState<Kol | null>(null);
   const [statusItem, setStatusItem] = useState<Kol | null>(null);
+  
+  // State untuk form modal Regenerate
+  const [regenerateItem, setRegenerateItem] = useState<Kol | null>(null);
+
   const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false); 
 
-  // State untuk melacak kolom mana saja yang aktif/dicentang (sinkron dengan ReusableTable)
+  // State untuk melacak kolom mana saja yang aktif/dicentang
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     referral_code: true,
     name: true,
@@ -82,7 +91,7 @@ export default function KolPage({
 
   const [selectedKolToEdit, setSelectedKolToEdit] = useState<Kol | null>(null);
   const [rawProvincesData, setRawProvincesData] = useState<any[]>([]);
-  const [selectedProvinceName, setSelectedProvinceName] = useState('');
+  const [, setSelectedProvinceName] = useState('');
 
   const getFormattedDate = (date: Date) => {
     const year = date.getFullYear();
@@ -226,6 +235,59 @@ export default function KolPage({
     }
   };
 
+  const handleOpenRegenerateModal = (item: Kol) => {
+    setRegenerateItem(item);
+  };
+
+  const handleExecuteRegenerate = async (formData: Record<string, any>) => {
+    if (!regenerateItem) return;
+    const targetId = regenerateItem.id || regenerateItem.uid;
+
+    try {
+      await kolService.updateKol(targetId as string | number, { status: 0 });
+
+      const formatDate = (val: any) => val ? (String(val).includes('T') ? String(val).split('T')[0] : String(val).slice(0, 10)) : undefined;
+
+      const rawType = formData.type || formData.tipe_kol || 'Reguler';
+      const resolvedType = typeof rawType === 'object' && rawType !== null ? (rawType.value || rawType.label || 'Reguler') : String(rawType);
+
+      const generateNewReferralCode = (oldCode?: string) => {
+        const cleanOld = oldCode ? oldCode.split('-')[0] : 'KOL';
+        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        return `${cleanOld}-${randomSuffix}`;
+      };
+
+      const newPayload = {
+        name: formData.name || regenerateItem.name,
+        nama_kol: formData.name || regenerateItem.name,
+        username: String(formData.username || regenerateItem.username || ''),
+        whatsapp: String(formData.whatsapp || regenerateItem.whatsapp || '').replace(/\D/g, ''),
+        province_name: String(formData.province_name || formData.provinsi || regenerateItem.province_name || ''),
+        provinsi: String(formData.province_name || formData.provinsi || regenerateItem.province_name || ''),
+        city_name: String(formData.city_name || formData.kota_asal || regenerateItem.city_name || ''),
+        kota_asal: String(formData.city_name || formData.kota_asal || regenerateItem.city_name || ''),
+        type: resolvedType,
+        campaign_start_date: formatDate(formData.campaign_start_date),
+        campaign_end_date: formatDate(formData.campaign_end_date),
+        referral_code: generateNewReferralCode(regenerateItem.referral_code || regenerateItem.kode_referral),
+        status: 1
+      };
+
+      await kolService.createKol(newPayload);
+
+      toast.success('Berhasil!', {
+        description: `Campaign KOL ${newPayload.name} berhasil diregenerate dengan periode baru.`
+      });
+
+      setRegenerateItem(null);
+      await refetch({ search: debouncedSearch, status: statusFilter, startDate: startDateFilter, endDate: endDateFilter });
+    } catch (error: any) {
+      console.error('Gagal meregenerate KOL:', error);
+      const errorMsg = error.response?.data?.message || 'Terjadi kesalahan saat meregenerate data.';
+      toast.error('Gagal Regenerasi', { description: errorMsg });
+    }
+  };
+
   const handleInitialFormSubmit = async (formData: Record<string, any>) => {
     setPendingFormData(formData);
     setIsModalOpen(false);
@@ -234,12 +296,12 @@ export default function KolPage({
   const handleConfirmSave = async () => {
     if (!pendingFormData) return;
     try {
-      const formatDate = (val: any) => val ? (String(val).includes('T') ? String(val).split('T')[0] : String(val).slice(0, 10)) : null;
+      const formatDate = (val: any) => val ? (String(val).includes('T') ? String(val).split('T')[0] : String(val).slice(0, 10)) : undefined;
 
       const rawWhatsapp = String(pendingFormData.whatsapp || '').replace(/\D/g, '');
       const resolvedName = pendingFormData.name || pendingFormData.nama_kol || pendingFormData.nama || '';
       const resolvedUsername = pendingFormData.username || '';
-      const resolvedProvince = String(pendingFormData.province_name || pendingFormData.provinsi || selectedProvinceName || '').trim();
+      const resolvedProvince = String(pendingFormData.province_name || pendingFormData.provinsi || '').trim();
       const resolvedCity = String(pendingFormData.city_name || pendingFormData.kota_asal || '').trim();
       const rawType = pendingFormData.type || pendingFormData.tipe_kol || 'Reguler';
       const resolvedType = typeof rawType === 'object' && rawType !== null ? (rawType.value || rawType.label || 'Reguler') : String(rawType);
@@ -262,8 +324,6 @@ export default function KolPage({
       let response;
       if (selectedKolToEdit) {
         const targetId = selectedKolToEdit.id || selectedKolToEdit.uid;
-        payload.referral_code = selectedKolToEdit.referral_code || selectedKolToEdit.kode_referral;
-
         response = await kolService.updateKol(targetId as string | number, payload);
       } else {
         response = await kolService.createKol(payload);
@@ -283,7 +343,6 @@ export default function KolPage({
       
       setSelectedKolToEdit(null);
       setPendingFormData(null);
-      setSelectedProvinceName('');
     } catch (error: any) {
       console.error('Gagal menyimpan data:', error);
       
@@ -295,37 +354,6 @@ export default function KolPage({
 
       setIsModalOpen(true);
       setPendingFormData(null);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteItem) return;
-    const targetId = deleteItem.id || deleteItem.uid;
-    if (!targetId) return;
-
-    try {
-      await kolService.deleteKol(targetId as string | number);
-      await refetch({ search: debouncedSearch, status: statusFilter, startDate: startDateFilter, endDate: endDateFilter });
-      setDeleteItem(null);
-
-      Swal.fire({
-        title: 'Terhapus!',
-        text: 'Data KOL berhasil dihapus.',
-        icon: 'success',
-        timer: 1500,
-        showConfirmButton: false
-      });
-    } catch (error: any) {
-      setDeleteItem(null);
-
-      const errorMessage = error.response?.data?.message || 'Terjadi kesalahan saat menghapus data.';
-
-      Swal.fire({
-        title: 'Gagal!',
-        text: errorMessage,
-        icon: 'error',
-        confirmButtonText: 'OK'
-      });
     }
   };
 
@@ -351,7 +379,6 @@ export default function KolPage({
         const worksheetData = filteredData.map((item, index) => {
           const rowObj: Record<string, any> = { No: index + 1 };
 
-          // Hanya masukkan ke rowObj jika kolom tersebut dicentang (aktif) di UI
           if (columnVisibility['referral_code']) rowObj['Kode Referral'] = item.referral_code || item.kode_referral || '';
           if (columnVisibility['name']) rowObj['Nama KOL'] = item.name || item.nama_kol || '';
           if (columnVisibility['username']) rowObj['Username'] = item.username || '';
@@ -431,13 +458,13 @@ export default function KolPage({
     },
     { 
       accessorKey: 'campaign_start_date', 
-      header: () => <div className="text-center">Mulai Campaign</div>, 
+      header: () => <div className="text-center">Start Date</div>, 
       cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">{row.original.campaign_start_date ? String(row.original.campaign_start_date).split('T')[0] : '-'}</span></div>,
       label: 'Mulai Campaign'
     },
     { 
       accessorKey: 'campaign_end_date', 
-      header: () => <div className="text-center">Selesai Campaign</div>, 
+      header: () => <div className="text-center">End Date</div>, 
       cell: ({ row }: any) => <div className="text-center"><span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#16171d] px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#2e303a] inline-block whitespace-nowrap">{row.original.campaign_end_date ? String(row.original.campaign_end_date).split('T')[0] : '-'}</span></div>,
       label: 'Selesai Campaign'
     },
@@ -464,34 +491,41 @@ export default function KolPage({
       accessorKey: 'actions',
       header: () => <div className="text-center">Aksi</div>,
       cell: ({ row }: any) => (
-        <div className="flex items-center justify-center gap-1.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Edit Data KOL"
-            onClick={() => {
-              setSelectedKolToEdit(row.original);
-              if (row.original.province_name || row.original.provinsi) {
-                fetchCitiesByProvinceName(row.original.province_name || row.original.provinsi);
-              }
-              setIsModalOpen(true);
-            }}
-            className="h-9 w-9 text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-950/70 rounded-lg shadow-2xs"
-          >
-            <Edit2 className="w-4 h-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Hapus Data KOL"
-            onClick={() => setDeleteItem(row.original)}
-            className="h-9 w-9 text-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-amber-950/70 rounded-lg shadow-2xs"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+        <div className="flex items-center justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 text-slate-600 dark:text-slate-300 bg-white dark:bg-[#16171d] border-slate-200 dark:border-[#2e303a] hover:bg-slate-100 dark:hover:bg-[#2e303a] rounded-lg shadow-2xs cursor-pointer"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className={`w-40 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
+              <DropdownMenuItem 
+                onClick={() => handleOpenRegenerateModal(row.original)}
+                className="cursor-pointer flex items-center gap-2 text-emerald-600 dark:text-emerald-400 focus:text-emerald-700 dark:focus:text-emerald-300"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Regenerate</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSelectedKolToEdit(row.original);
+                  if (row.original.province_name || row.original.provinsi) {
+                    fetchCitiesByProvinceName(row.original.province_name || row.original.provinsi);
+                  }
+                  setIsModalOpen(true);
+                }}
+                className="cursor-pointer flex items-center gap-2 text-amber-600 dark:text-amber-400 focus:text-amber-700 dark:focus:text-amber-300"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span>Edit</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
       label: 'Aksi'
@@ -499,7 +533,7 @@ export default function KolPage({
   ];
 
   return (
-    <div className={`space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm transition-all duration-300 ${isModalOpen ? 'blur-sm brightness-90 pointer-events-none' : ''}`}>
+    <div className={`space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm transition-all duration-300 ${isModalOpen || regenerateItem ? 'blur-sm brightness-90 pointer-events-none' : ''}`}>
       <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
         
         <PageHeader 
@@ -577,7 +611,7 @@ export default function KolPage({
           </div>
         </PageHeader>
 
-        {/* Tabel Data (ReusableTable) - Disinkronkan dengan columnVisibility */}
+        {/* Tabel Data (ReusableTable) */}
         <div className="w-full">
           <ReusableTable
             data={filteredData}
@@ -642,9 +676,39 @@ export default function KolPage({
                         </div>
                       </div>
 
+                      {/* Periode Campaign Start & End Date (Format sesuai contoh referensi) */}
+                      <div className="grid grid-cols-2 gap-2.5 pt-1 text-xs text-left">
+                        <div>
+                          <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 mb-0.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span className="text-[10px] uppercase font-semibold">Mulai Campaign</span>
+                          </div>
+                          <span className="font-mono font-medium text-slate-700 dark:text-slate-300 block">
+                            {item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-'}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 mb-0.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span className="text-[10px] uppercase font-semibold">Selesai Campaign</span>
+                          </div>
+                          <span className="font-mono font-medium text-slate-700 dark:text-slate-300 block">
+                            {item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-'}
+                          </span>
+                        </div>
+                      </div>
+
                     </CardContent>
 
                     <CardFooter className={`p-2.5 flex justify-end gap-2 border-t ${isDarkMode ? 'bg-[#1f2028]/50 border-[#2e303a]' : 'bg-slate-50/80 border-slate-100'}`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenRegenerateModal(item)}
+                        className="h-7 text-xs px-2.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900 dark:hover:bg-emerald-950/30"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" /> Regenerate
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -656,14 +720,6 @@ export default function KolPage({
                         className="h-7 text-xs px-3 text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900 dark:hover:bg-amber-950/30"
                       >
                         <Edit2 className="w-3 h-3 mr-1" /> Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setDeleteItem(item)}
-                        className="h-7 text-xs px-3"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" /> Hapus
                       </Button>
                     </CardFooter>
 
@@ -694,7 +750,36 @@ export default function KolPage({
         </button>
       </div>
 
-      {/* Render Modal Berdasarkan Kondisi */}
+      {/* MODAL REGENERATE */}
+      {regenerateItem && (
+        <KolCreateModal
+          isOpen={Boolean(regenerateItem)}
+          onClose={() => setRegenerateItem(null)}
+          onSubmitSuccess={handleExecuteRegenerate}
+          initialData={regenerateItem}
+          modalTitle="Regenerate Campaign KOL"
+          isDarkMode={isDarkMode}
+          provinceOptions={provinceOptions}
+          cityOptions={cityOptions}
+          campaignOptions={campaignOptions}
+          defaultStartDate={defaultStartDate}
+          defaultEndDate={defaultEndDate}
+          onProvinceChange={(provName, updateFormValue) => {
+            setSelectedProvinceName(provName);
+            if (provName.trim() !== '') {
+              fetchCitiesByProvinceName(provName);
+              if (updateFormValue) {
+                updateFormValue('province_name', provName);
+                updateFormValue('provinsi', provName);
+                updateFormValue('city_name', '');
+                updateFormValue('kota_asal', '');
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* Render Modal Edit / Create */}
       {selectedKolToEdit ? (
         <KolEditModal
           isOpen={isModalOpen}
@@ -782,7 +867,7 @@ export default function KolPage({
       {/* Dialog Konfirmasi Ubah Status */}
       <ConfirmDialog
         isOpen={Boolean(statusItem)}
-        onOpenChange={(open) => !open && setStatusItem(null)}
+        onOpenChange={(open) => !open && statusItem && setStatusItem(null)}
         title="Ubah Status KOL?"
         description={
           <>
@@ -797,27 +882,6 @@ export default function KolPage({
         onConfirm={handleConfirmToggleStatus}
         icon={<Plus className="w-6 h-6 rotate-45" />}
         variant="success"
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Dialog Konfirmasi Hapus */}
-      <ConfirmDialog
-        isOpen={Boolean(deleteItem)}
-        onOpenChange={(open) => !open && setDeleteItem(null)}
-        title="Hapus Data KOL Ini?"
-        description={
-          <>
-            Tindakan ini bersifat permanen. Data KOL{' '}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {deleteItem?.name || deleteItem?.nama_kol}
-            </span>{' '}
-            akan dihapus dari sistem.
-          </>
-        }
-        confirmText="Ya, Hapus"
-        onConfirm={handleConfirmDelete}
-        icon={<Trash2 className="w-6 h-6" />}
-        variant="danger"
         isDarkMode={isDarkMode}
       />
     </div>

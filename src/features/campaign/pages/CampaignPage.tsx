@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Megaphone, Save, Filter } from 'lucide-react';
+import { Plus, Search, Edit2, Megaphone, Save, Filter } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 import ReusableTable from '../../../components/ReusableTable';
 import FilterDropdown from '../../../components/FilterDropdown';
-import { PageHeader } from '../../../components/ui/PageHeader'; // <-- Menggunakan pondasi PageHeader
+import { PageHeader } from '../../../components/ui/PageHeader'; 
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'; 
 import { campaignService } from '../services/campaign.service'; 
 import { Badge } from '../../../components/ui/badge';
@@ -32,10 +32,10 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
-  const [statusFilter, setStatusFilter] = useState('Semua Status');
+  // REVISI: Nilai awal statusFilter diubah menjadi 'Active' agar saat pertama buka hanya menampilkan yang aktif
+  const [statusFilter, setStatusFilter] = useState('Active');
   const [selectedCampaignToEdit, setSelectedCampaignToEdit] = useState<Campaign | null>(null);
 
-  const [deleteItem, setDeleteItem] = useState<Campaign | null>(null);
   const [statusItem, setStatusItem] = useState<Campaign | null>(null);
   const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
 
@@ -170,31 +170,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteItem || !deleteItem.id) return;
-    try {
-      await campaignService.deleteCampaign(deleteItem.id);
-      await fetchCampaigns({
-        search: debouncedSearch,
-        status: statusFilter,
-      });
-      setDeleteItem(null);
-
-      Swal.fire({
-        title: 'Terhapus!',
-        text: 'Data Campaign berhasil dihapus.',
-        icon: 'success',
-        timer: 1500,
-        showConfirmButton: false
-      });
-    } catch (error: any) {
-      setDeleteItem(null);
-      const errorMsg = error.response?.data?.message || 'Terjadi kesalahan saat menghapus data.';
-      Swal.fire('Gagal!', errorMsg, 'error');
-    }
-  };
-
-  // Menambahkan properti 'label' agar nama di dropdown kolom sama persis dengan header tabel
   const columns = [
     {
       accessorKey: 'id',
@@ -263,15 +238,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
           >
             <Edit2 className="w-4 h-4" />
           </Badge>
-
-          <Badge
-            variant="outline"
-            onClick={() => setDeleteItem(row.original)}
-            className="h-9 w-9 p-0 flex items-center justify-center text-rose-600 bg-rose-50 dark:bg-rose-950/45 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/50 cursor-pointer rounded-lg shadow-2xs transition"
-            title="Hapus Campaign"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Badge>
         </div>
       ),
       label: 'Aksi'
@@ -280,12 +246,10 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
 
   return (
     <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm">
-      {/* KONTINER UTAMA */}
       <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${
         isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         
-        {/* MENGGUNAKAN PAGE HEADER MODULAR */}
         <PageHeader 
           icon={<Megaphone className="w-5 h-5" />}
           title="Master Campaign"
@@ -315,11 +279,11 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
                 <Filter className="w-4 h-4" />
               </button>
 
-              {statusFilter && statusFilter !== 'Semua Status' && (
+              {/* Indikator titik merah jika filter aktif selain default 'Active' */}
+              {statusFilter && statusFilter !== 'Active' && (
                 <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-[#16171d] pointer-events-none z-20" />
               )}
 
-              {/* Wrapper dropdown filter dengan posisi letak yang rapi */}
               <div className="absolute right-0 top-full mt-2 z-50">
                 <FilterDropdown
                   isOpen={isFilterOpen}
@@ -354,7 +318,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
           </div>
         </PageHeader>
 
-        {/* Tabel Data */}
         <div className="w-full">
           <ReusableTable
             data={filteredCampaigns}
@@ -380,7 +343,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         </button>
       </div>
 
-      {/* Render Modal Terpisah (Create / Edit) */}
       {selectedCampaignToEdit ? (
         <CampaignEditModal
           isOpen={isModalOpen}
@@ -403,8 +365,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
           isDarkMode={isDarkMode}
         />
       )}
-
-      {/* --- MENGGUNAKAN CONFIRM DIALOG MODULAR --- */}
 
       {/* Dialog Konfirmasi Simpan Campaign */}
       <ConfirmDialog
@@ -440,24 +400,6 @@ export default function CampaignPage({ isDarkMode = false }: CampaignPageProps) 
         onConfirm={handleConfirmToggleStatus}
         icon={<Megaphone className="w-6 h-6" />}
         variant="success"
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Dialog Konfirmasi Hapus Campaign */}
-      <ConfirmDialog
-        isOpen={Boolean(deleteItem)}
-        onOpenChange={(open) => !open && setDeleteItem(null)}
-        title="Hapus Campaign Ini?"
-        description={
-          <>
-            Tindakan ini bersifat permanen. Data Campaign{' '}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">{deleteItem?.campaign_name}</span> akan dihapus.
-          </>
-        }
-        confirmText="Ya, Hapus"
-        onConfirm={handleConfirmDelete}
-        icon={<Trash2 className="w-6 h-6" />}
-        variant="danger"
         isDarkMode={isDarkMode}
       />
     </div>

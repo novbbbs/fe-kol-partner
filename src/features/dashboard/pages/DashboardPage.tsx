@@ -121,17 +121,20 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
     return !isExplicitlyInactive;
   });
 
-  const topKolData = activeTopKol.map((item: any, index: number) => ({
-    id: item.id || index + 1,
-    nama_kol: item.nama_kol || item.name || 'Influencer',
-    username: item.username || 'username',
-    kota_asal: item.kota_asal || item.city_name || 'Kota',
-    total_tiket: `${item.total_visitor || 1280} Visitor`,
-    revenue: `Rp ${((item.total_visitor || 1280) * 30000).toLocaleString('id-ID')}`,
-    reservasi: item.total_reservasi || 35,
-    initials: (item.nama_kol || item.name || 'IN').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
-    avatarBg: ['bg-amber-100 text-amber-700', 'bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700', 'bg-rose-100 text-rose-700', 'bg-emerald-100 text-emerald-700'][index % 5]
-  }));
+  const topKolData = activeTopKol.map((item: any, index: number) => {
+    const visitorCount = item.total_visitor ?? 0;
+    return {
+      id: item.id || index + 1,
+      nama_kol: item.nama_kol || item.name || 'Influencer',
+      username: item.username || 'username',
+      kota_asal: item.kota_asal || item.city_name || 'Kota',
+      total_tiket: visitorCount,
+      revenue: `Rp ${(visitorCount * 30000).toLocaleString('id-ID')}`,
+      reservasi: item.total_reservasi || 0,
+      initials: (item.nama_kol || item.name || 'IN').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
+      avatarBg: ['bg-amber-100 text-amber-700', 'bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700', 'bg-rose-100 text-rose-700', 'bg-emerald-100 text-emerald-700'][index % 5]
+    };
+  });
 
   // --- FILTER TOP 5 CITY ---
   const rawTopCity = dashboardData?.top_5_city || [];
@@ -142,7 +145,7 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
       city: item.city_name || item.kota_asal || 'Kota',
       province: item.province_name || 'Jawa Timur',
       kol: item.total_kol || 0,
-      visitor: `${visitorVal} Visitor`,
+      visitor: visitorVal,
       revenue: `Rp ${(visitorVal * 30000).toLocaleString('id-ID')}`
     };
   });
@@ -244,8 +247,8 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
             value={totalKolCount}
             icon={<Users className="w-3.5 h-3.5" />}
             iconBgColor="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600"
-            footerText="Influencer aktif"
-            footerValue="100% Aktif"
+            footerText=""
+            footerValue=""
             isDarkMode={isDarkMode}
           />
 
@@ -254,14 +257,9 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
             value={totalReservasiCount}
             icon={<Calendar className="w-3.5 h-3.5" />}
             iconBgColor="bg-amber-50 dark:bg-amber-950/50 text-amber-600"
-            footerText="Aktual / Target"
-            footerValue="1,850"
+            footerText=""
+            footerValue=""
             isDarkMode={isDarkMode}
-            extraContent={
-              <div className="flex items-baseline gap-1">
-                <span className="text-[11px] text-slate-400 font-medium">/ 1,850</span>
-              </div>
-            }
           />
 
           <StatsCard
@@ -269,16 +267,16 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
             value={totalVisitorCount}
             icon={<Eye className="w-3.5 h-3.5" />}
             iconBgColor="bg-blue-50 dark:bg-blue-950/50 text-blue-600"
-            footerText="Scan tiket terverifikasi"
-            footerValue={`${totalVisitorCount} Pax`}
+            footerText=""
+            footerValue=""
             isDarkMode={isDarkMode}
           />
         </div>
 
-        {/* GRID KARTU KUSTOM: TOP 5 KOL & TOP 5 CITY */}
+        {/* GRID TABEL: TOP 5 KOL & TOP 5 CITY */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           
-          {/* TOP 5 KOL */}
+          {/* TABEL TOP 5 KOL */}
           <div className={`rounded-xl border shadow-sm overflow-hidden ${
             isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
@@ -294,48 +292,57 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
               </div>
             </div>
 
-            <div className="p-1.5 space-y-1">
-              {topKolData.length > 0 ? (
-                topKolData.map((item: any, idx: number) => (
-                  <div key={item.id} className="p-2 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-900/50">
-                        {idx + 1}
-                      </div>
-                      <div className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center text-xs shrink-0 ${item.avatarBg}`}>
-                        {item.initials}
-                      </div>
-                      <div className="text-left min-w-0">
-                        <h4 className="font-bold text-slate-800 dark:text-white text-xs truncate">{item.nama_kol}</h4>
-                        <p className="text-[10px] text-slate-400 truncate">@{item.username}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-end gap-1.5 text-center sm:text-right pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
-                      <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded">
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.reservasi}</span>
-                        <span className="text-[9px] text-slate-400 uppercase">Reservasi</span>
-                      </div>
-                      <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded">
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.total_tiket}</span>
-                        <span className="text-[9px] text-slate-400 uppercase">Visitor</span>
-                      </div>
-                      <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded col-span-3 sm:col-span-1 sm:w-24">
-                        <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-xs truncate">{item.revenue}</span>
-                        <span className="text-[9px] text-slate-400 uppercase">Pendapatan</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-3 text-center text-slate-400 text-xs">
-                  Belum ada data KOL untuk kategori ini.
-                </div>
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className={`border-b text-[10px] uppercase font-semibold text-slate-400 ${
+                    isDarkMode ? 'border-[#2e303a] bg-[#16171d]' : 'border-slate-100 bg-slate-50/70'
+                  }`}>
+                    <th className="py-2.5 px-3 text-center w-12">No</th>
+                    <th className="py-2.5 px-3">Nama KOL</th>
+                    <th className="py-2.5 px-3 text-center">Reservasi</th>
+                    <th className="py-2.5 px-3 text-center">Visitor</th>
+                    <th className="py-2.5 px-3 text-right">Pendapatan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#2e303a]">
+                  {topKolData.length > 0 ? (
+                    topKolData.map((item: any, idx: number) => (
+                      <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition">
+                        <td className="py-2.5 px-3 text-center font-bold">
+                          <span className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 inline-flex items-center justify-center text-[10px] border border-amber-200 dark:border-amber-900/50">
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center text-xs shrink-0 ${item.avatarBg}`}>
+                              {item.initials}
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-slate-800 dark:text-white truncate">{item.nama_kol}</h4>
+                              <p className="text-[10px] text-slate-400 truncate">@{item.username}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-bold">{item.reservasi}</td>
+                        <td className="py-2.5 px-3 text-center font-medium">{item.total_tiket}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{item.revenue}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-slate-400 text-xs">
+                        Belum ada data KOL untuk kategori ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          {/* TOP 5 CITY */}
+          {/* TABEL TOP 5 CITY */}
           <div className={`rounded-xl border shadow-sm overflow-hidden ${
             isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
@@ -351,44 +358,53 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
               </div>
             </div>
 
-            <div className="p-1.5 space-y-1">
-              {topCityList.length > 0 ? (
-                topCityList.map((item: any) => (
-                  <div key={item.city} className="p-2 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition border-b sm:border-b-0 border-slate-100 dark:border-[#2e303a]/50 last:border-none">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-900/50">
-                        {item.rank}
-                      </div>
-                      <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 font-bold flex items-center justify-center text-xs shrink-0">
-                        <MapPin className="w-3 h-3" />
-                      </div>
-                      <div className="text-left min-w-0">
-                        <h4 className="font-bold text-slate-800 dark:text-white text-xs truncate">{item.city}</h4>
-                        <p className="text-[10px] text-slate-400 truncate">{item.province}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-end gap-1.5 text-center sm:text-right pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#2e303a]">
-                      <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded">
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.kol} KOL</span>
-                        <span className="text-[9px] text-slate-400 uppercase">Aktif</span>
-                      </div>
-                      <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded">
-                        <span className="font-bold block text-slate-800 dark:text-white text-xs">{item.visitor}</span>
-                        <span className="text-[9px] text-slate-400 uppercase">Visitor</span>
-                      </div>
-                      <div className="bg-slate-50 dark:bg-[#16171d] sm:bg-transparent p-0.5 sm:p-0 rounded col-span-3 sm:col-span-1 sm:w-24">
-                        <span className="font-bold block text-emerald-600 dark:text-emerald-400 text-xs truncate">{item.revenue}</span>
-                        <span className="text-[9px] text-slate-400 uppercase">Total Tiket</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-3 text-center text-slate-400 text-xs">
-                  Belum ada data kota untuk kategori ini.
-                </div>
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className={`border-b text-[10px] uppercase font-semibold text-slate-400 ${
+                    isDarkMode ? 'border-[#2e303a] bg-[#16171d]' : 'border-slate-100 bg-slate-50/70'
+                  }`}>
+                    <th className="py-2.5 px-3 text-center w-12">No</th>
+                    <th className="py-2.5 px-3">Kota Asal</th>
+                    <th className="py-2.5 px-3 text-center">KOL Aktif</th>
+                    <th className="py-2.5 px-3 text-center">Visitor</th>
+                    <th className="py-2.5 px-3 text-right">Total Tiket</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#2e303a]">
+                  {topCityList.length > 0 ? (
+                    topCityList.map((item: any) => (
+                      <tr key={item.city} className="hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition">
+                        <td className="py-2.5 px-3 text-center font-bold">
+                          <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center text-[10px] border border-emerald-200 dark:border-emerald-900/50">
+                            {item.rank}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 font-bold flex items-center justify-center text-xs shrink-0">
+                              <MapPin className="w-3 h-3" />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-slate-800 dark:text-white truncate">{item.city}</h4>
+                              <p className="text-[10px] text-slate-400 truncate">{item.province}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-bold">{item.kol} KOL</td>
+                        <td className="py-2.5 px-3 text-center font-medium">{item.visitor}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{item.revenue}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-slate-400 text-xs">
+                        Belum ada data kota untuk kategori ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 

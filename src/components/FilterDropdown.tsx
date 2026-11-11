@@ -5,11 +5,18 @@ import { DatePicker } from './ui/date-picker';
 interface FilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyFilter: (filters: { startDate?: string; endDate?: string; status: string }) => void;
+  onApplyFilter: (filters: { 
+    startDate?: string; 
+    endDate?: string; 
+    status: string;
+    namaKol?: string;
+    typeKol?: string;
+  }) => void;
   isDarkMode?: boolean;
   title?: string;
   showDateFilter?: boolean;
   statusOptions?: { label: string; value: string }[];
+  showKolFilters?: boolean;
 }
 
 export default function FilterDropdown({
@@ -19,15 +26,20 @@ export default function FilterDropdown({
   isDarkMode = false,
   showDateFilter = true,
   statusOptions = [
-    { label: 'Semua Status', value: 'Semua Status' },
-    { label: 'ACTIVE', value: 'ACTIVE' },
-    { label: 'NON-ACTIVE', value: 'NON-ACTIVE' },
+    { label: 'Semua Status', value: 'Semua' },
+    { label: 'Success', value: 'Success' },
+    { label: 'Pending', value: 'Pending' },
   ],
+  showKolFilters = false,
 }: FilterDropdownProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [status, setStatus] = useState(statusOptions[0]?.value || 'Semua Status');
+  const [status, setStatus] = useState('Semua');
   
+  // State untuk Nama KOL & Type KOL (Kode Referral sudah dihapus)
+  const [namaKol, setNamaKol] = useState('');
+  const [typeKol, setTypeKol] = useState('');
+
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -58,32 +70,33 @@ export default function FilterDropdown({
   const handleReset = () => {
     setStartDate('');
     setEndDate('');
-    const defaultStatus = statusOptions[0]?.value || 'Semua Status';
-    setStatus(defaultStatus);
+    setStatus('Semua');
+    setNamaKol('');
+    setTypeKol('');
     setIsStatusOpen(false);
-    onApplyFilter({ startDate: '', endDate: '', status: defaultStatus });
+    onApplyFilter({ startDate: '', endDate: '', status: 'Semua', namaKol: '', typeKol: '' });
   };
 
   const handleStatusSelect = (val: string) => {
     setStatus(val);
     setIsStatusOpen(false);
-    onApplyFilter({ startDate, endDate, status: val });
+    onApplyFilter({ startDate, endDate, status: val, namaKol, typeKol });
   };
 
   const handleDateChange = (type: 'start' | 'end', val: string) => {
     if (type === 'start') {
       setStartDate(val);
-      onApplyFilter({ startDate: val, endDate, status });
+      onApplyFilter({ startDate: val, endDate, status, namaKol, typeKol });
     } else {
       setEndDate(val);
-      onApplyFilter({ startDate: endDate ? endDate : val, endDate: val, status });
+      onApplyFilter({ startDate, endDate: val, status, namaKol, typeKol });
     }
   };
 
   const selectedStatusLabel = statusOptions.find(opt => opt.value === status)?.label || status;
 
-  // KONDISI TANPA TANGGAL (Compact)
-  if (!showDateFilter) {
+  // TAMPILAN KONDISI TANPA TANGGAL (Compact)
+  if (!showDateFilter && !showKolFilters) {
     return (
       <div
         ref={dropdownRef}
@@ -94,7 +107,7 @@ export default function FilterDropdown({
       >
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#2e303a]">
           <span className="font-bold text-slate-700 dark:text-slate-200">Filter Status</span>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -151,7 +164,7 @@ export default function FilterDropdown({
     );
   }
 
-  // TAMPILAN LENGKAP (Dengan Tanggal)
+  // TAMPILAN LENGKAP
   return (
     <div
       ref={dropdownRef}
@@ -162,36 +175,77 @@ export default function FilterDropdown({
     >
       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#2e303a]">
         <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">Filter Data</span>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5">
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <div className="space-y-1 text-left">
-          <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
-            Start Date
-          </label>
-          <DatePicker
-            value={startDate}
-            onChange={(val) => handleDateChange('start', val)}
-            placeholder="DD-MM-YYYY"
-            isDarkMode={isDarkMode}
-          />
+      {/* Start Date & End Date (1 Baris Sejajar) */}
+      {showDateFilter && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="space-y-1 text-left">
+            <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
+              Start Date
+            </label>
+            <DatePicker
+              value={startDate}
+              onChange={(val) => handleDateChange('start', val)}
+              placeholder="DD-MM-YYYY"
+              isDarkMode={isDarkMode}
+            />
+          </div>
+          <div className="space-y-1 text-left">
+            <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
+              End Date
+            </label>
+            <DatePicker
+              value={endDate}
+              onChange={(val) => handleDateChange('end', val)}
+              placeholder="DD-MM-YYYY"
+              isDarkMode={isDarkMode}
+            />
+          </div>
         </div>
-        <div className="space-y-1 text-left">
-          <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
-            End Date
-          </label>
-          <DatePicker
-            value={endDate}
-            onChange={(val) => handleDateChange('end', val)}
-            placeholder="DD-MM-YYYY"
-            isDarkMode={isDarkMode}
-          />
-        </div>
-      </div>
+      )}
 
+      {/* Filter Nama KOL & Type KOL (2 Kolom Sejajar, Kode Referral Dihilangkan) */}
+      {showKolFilters && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="space-y-1 text-left">
+            <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">Nama KOL</label>
+            <input
+              type="text"
+              value={namaKol}
+              onChange={(e) => {
+                setNamaKol(e.target.value);
+                onApplyFilter({ startDate, endDate, status, namaKol: e.target.value, typeKol });
+              }}
+              placeholder="Cari nama KOL..."
+              className={`w-full h-9 px-3 rounded-xl border text-xs outline-none transition ${
+                isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-700 placeholder-slate-400'
+              }`}
+            />
+          </div>
+
+          <div className="space-y-1 text-left">
+            <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">Type KOL</label>
+            <input
+              type="text"
+              value={typeKol}
+              onChange={(e) => {
+                setTypeKol(e.target.value);
+                onApplyFilter({ startDate, endDate, status, namaKol, typeKol: e.target.value });
+              }}
+              placeholder="Type KOL..."
+              className={`w-full h-9 px-3 rounded-xl border text-xs outline-none transition ${
+                isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-700 placeholder-slate-400'
+              }`}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Status Selector */}
       <div className="space-y-1 text-left relative" ref={statusDropdownRef}>
         <label className="block font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
           Status

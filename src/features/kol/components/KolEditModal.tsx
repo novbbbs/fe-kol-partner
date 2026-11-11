@@ -66,6 +66,18 @@ export default function KolEditModal({
         type: 'select', 
         options: campaignOptions,
         required: true 
+      },
+      { 
+        name: 'campaign_start_date', 
+        label: 'Mulai Campaign', 
+        type: 'date', 
+        required: true 
+      },
+      { 
+        name: 'campaign_end_date', 
+        label: 'Selesai Campaign', 
+        type: 'date', 
+        required: true 
       }
     ];
   }, [provinceOptions, cityOptions, campaignOptions, onProvinceChange]);

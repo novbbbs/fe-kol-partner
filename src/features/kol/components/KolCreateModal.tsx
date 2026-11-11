@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import FormModal, { type FieldConfig } from '../../../components/FormModal';
 
 interface KolCreateModalProps {
@@ -12,6 +13,8 @@ interface KolCreateModalProps {
   onProvinceChange: (provinceName: string, updateFormValue?: any) => void;
   defaultStartDate: string;
   defaultEndDate: string;
+  initialData?: any;          // Tambahan untuk support Mode Edit / Regenerate
+  modalTitle?: string;        // Tambahan untuk kustomisasi judul modal (misal: "Regenerate Campaign KOL")
 }
 
 export default function KolCreateModal({
@@ -25,6 +28,8 @@ export default function KolCreateModal({
   onProvinceChange,
   defaultStartDate,
   defaultEndDate,
+  initialData = null,
+  modalTitle,
 }: KolCreateModalProps) {
 
   // Gunakan useRef agar fungsi callback tidak memicu re-create pada useMemo fields
@@ -59,7 +64,6 @@ export default function KolCreateModal({
             ? String(selectedVal.value || selectedVal.label || '')
             : String(selectedVal || '');
 
-          // Panggil menggunakan ref agar stabil
           onProvinceChangeRef.current(provName, updateFormValue);
         }
       },
@@ -117,10 +121,8 @@ export default function KolCreateModal({
         required: true 
       }
     ];
-  // Hapus cityOptions dan onProvinceChange dari array dependency agar field tidak ke-reset saat kota/provinsi berubah
   }, [provinceOptions, campaignOptions, defaultStartDate, defaultEndDate]);
 
-  // Update options city secara dinamis tanpa mereset instance fields utama
   const finalFields = useMemo(() => {
     return createFields.map((field) => {
       if (field.name === 'city_name') {
@@ -130,14 +132,69 @@ export default function KolCreateModal({
     });
   }, [createFields, cityOptions]);
 
+  // Helper untuk membersihkan format tanggal agar aman dibaca FormModal
+  const parseDateToYYYYMMDD = (dateVal: any, fallback: string) => {
+    if (!dateVal) return fallback;
+    const str = String(dateVal).split('T')[0];
+    if (str.includes('-') && str.split('-')[0].length === 2) {
+      const [d, m, y] = str.split('-');
+      return `${y}-${m}-${d}`;
+    }
+    return str || fallback;
+  };
+
+  // Format data awal untuk mengisi field saat modal dibuka (bisa untuk Edit / Regenerate)
+  const resolvedInitialData = useMemo(() => {
+    if (!initialData) return null;
+    return {
+      name: initialData.name || initialData.nama_kol || '',
+      username: initialData.username || '',
+      whatsapp: initialData.whatsapp || '',
+      province_name: initialData.province_name || initialData.provinsi || '',
+      city_name: initialData.city_name || initialData.kota_asal || '',
+      type: initialData.type || initialData.tipe_kol || 'Reguler',
+      campaign_start_date: parseDateToYYYYMMDD(initialData.campaign_start_date, defaultStartDate),
+      campaign_end_date: parseDateToYYYYMMDD(initialData.campaign_end_date, defaultEndDate),
+    };
+  }, [initialData, defaultStartDate, defaultEndDate]);
+
+  // Fungsi penengah untuk validasi sebelum data diteruskan ke halaman utama
+  const handleFormSubmit = (formData: Record<string, any>) => {
+    // 1. Cek field wajib yang kosong
+    if (
+      !formData.name?.trim() ||
+      !formData.username?.trim() ||
+      !formData.whatsapp?.trim() ||
+      !formData.province_name ||
+      !formData.city_name
+    ) {
+      toast.error('Gagal menyimpan data', {
+        description: 'Semua field formulir wajib diisi dengan lengkap.'
+      });
+      return; 
+    }
+
+    // 2. Cek panjang nomor WhatsApp (11-14 digit)
+    const cleanWhatsapp = String(formData.whatsapp).replace(/\D/g, '');
+    if (cleanWhatsapp.length < 11 || cleanWhatsapp.length > 14) {
+      toast.error('Gagal menyimpan data', {
+        description: 'Nomor WhatsApp wajib diisi antara 11-14 digit.'
+      });
+      return; 
+    }
+
+    // Jika lolos validasi, teruskan ke parent
+    onSubmitSuccess(formData);
+  };
+
   return (
     <FormModal
       isOpen={isOpen}
       onClose={onClose}
-      onSubmitSuccess={onSubmitSuccess}
-      initialData={null}
-      titleCreate="Tambah KOL Baru"
-      titleEdit="Edit KOL"
+      onSubmitSuccess={handleFormSubmit}
+      initialData={resolvedInitialData}
+      titleCreate={modalTitle || "Tambah KOL Baru"}
+      titleEdit={modalTitle || "Edit KOL"}
       fields={finalFields}
       isDarkMode={isDarkMode}
     />
