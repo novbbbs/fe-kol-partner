@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Check,
   Plus,
+  Pencil,
   Save,
   AlertCircle,
 } from 'lucide-react';
@@ -51,6 +52,7 @@ interface FormModalProps {
   titleEdit?: string;
   fields: FieldConfig[];
   isDarkMode?: boolean;
+  customFooterButtons?: React.ReactNode; // <-- Tambahan props untuk tombol aksi tambahan
 }
 
 /* =========================================================
@@ -317,6 +319,7 @@ export default function FormModal({
   titleEdit = 'Edit Data',
   fields,
   isDarkMode = false,
+  customFooterButtons, // <-- Menerima tombol tambahan
 }: FormModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -324,7 +327,6 @@ export default function FormModal({
 
   const isEditMode = Boolean(initialData);
 
-  // PERBAIKAN UTAMA: Hanya jalankan saat modal pertama kali dibuka (isOpen berubah menjadi true)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -347,7 +349,7 @@ export default function FormModal({
 
       setFormData(initialValues);
     }
-  }, [isOpen]); // Hapus 'fields' dan 'initialData' dari dependency agar tidak mereset saat user mengetik/memilih select!
+  }, [isOpen]);
 
   const updateFormValue = (fieldName: string, value: any) => {
     setFormData((prev) => ({
@@ -413,8 +415,13 @@ export default function FormModal({
       >
         <div className="p-5 px-6 flex items-center justify-between border-b border-slate-200 dark:border-[#2e303a] shrink-0">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-lg bg-emerald-600/10 flex items-center justify-center text-emerald-600 font-bold border border-emerald-600/20">
-              <Plus className="w-5 h-5" />
+            {/* Ikon dinamis: Pencil (amber) jika Edit, Plus (emerald) jika Create */}
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold border ${
+              isEditMode 
+                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400' 
+                : 'bg-emerald-600/10 text-emerald-600 border-emerald-600/20'
+            }`}>
+              {isEditMode ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
             </div>
 
             <DialogHeader className="space-y-0.5 text-left">
@@ -558,26 +565,33 @@ export default function FormModal({
             style={{
               backgroundColor: isDarkMode ? '#1f2028' : '#ffffff',
             }}
-            className="p-4 px-6 border-t border-slate-200 dark:border-[#2e303a] flex items-center justify-end gap-3 shrink-0 rounded-b-xl"
+            className="p-4 px-6 border-t border-slate-200 dark:border-[#2e303a] flex items-center justify-between gap-3 shrink-0 rounded-b-xl"
           >
-            <Button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg h-10 px-6 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
-            >
-              Batal
-            </Button>
+            {/* Tempat tombol aksi tambahan (Detail & Regenerate) */}
+            <div>
+              {customFooterButtons}
+            </div>
 
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-lg h-10 px-7 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>
-                {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-              </span>
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg h-10 px-6 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+              >
+                Batal
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-lg h-10 px-7 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+                </span>
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

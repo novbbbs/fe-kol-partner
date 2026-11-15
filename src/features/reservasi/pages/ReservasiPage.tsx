@@ -25,8 +25,7 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
-  const [namaKolFilter, setNamaKolFilter] = useState('');
-  const [typeKolFilter, setTypeKolFilter] = useState('');
+  const [typeCampaignFilter, setTypeCampaignFilter] = useState('');
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(inputValue), 400);
@@ -39,10 +38,9 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
       status: statusFilter === 'Semua' ? undefined : statusFilter, 
       startDate: startDateFilter, 
       endDate: endDateFilter,
-      nama_kol: namaKolFilter || undefined,
-      type_kol: typeKolFilter || undefined,
+      type_kol: typeCampaignFilter || undefined, 
     } as any);
-  }, [debouncedSearch, statusFilter, startDateFilter, endDateFilter, namaKolFilter, typeKolFilter, refetch]);
+  }, [debouncedSearch, statusFilter, startDateFilter, endDateFilter, typeCampaignFilter, refetch]);
 
   const filteredData = reservasis;
 
@@ -56,7 +54,7 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
         Email: item.email,
         'Kode Referral': item.kode_referral || '-',
         'Nama KOL': item.nama_kol,
-        'Type KOL': item.type_kol,
+        'Type Campaign': item.type_kol,
         'Total Bayar': item.total_bayar,
         Qty: item.qty,
         Kedatangan: item.kedatangan,
@@ -91,7 +89,7 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
       label: 'Kode Referral' 
     },
     { accessorKey: 'nama_kol', header: () => <div className="text-left -ml-2">Nama KOL</div>, cell: ({ row }: any) => <div className="text-left -ml-2 font-medium text-slate-700 dark:text-slate-300">{row.original.nama_kol}</div>, label: 'Nama KOL' },
-    { accessorKey: 'type_kol', header: () => <div className="text-center">Type KOL</div>, cell: ({ row }: any) => <div className="text-center"><Badge variant="outline" className="text-[11px]">{row.original.type_kol}</Badge></div>, label: 'Type KOL' },
+    { accessorKey: 'type_kol', header: () => <div className="text-center">Type Campaign</div>, cell: ({ row }: any) => <div className="text-center"><Badge variant="outline" className="text-[11px]">{row.original.type_kol}</Badge></div>, label: 'Type Campaign' },
     { accessorKey: 'total_bayar', header: () => <div className="text-right">Total Bayar</div>, cell: ({ row }: any) => <div className="text-right font-mono text-slate-800 dark:text-white">Rp {Number(row.original.total_bayar || 0).toLocaleString('id-ID')}</div>, label: 'Total Bayar' },
     { accessorKey: 'qty', header: () => <div className="text-center">Qty</div>, cell: ({ row }: any) => <div className="text-center font-semibold">{row.original.qty}</div>, label: 'Qty' },
     { accessorKey: 'kedatangan', header: () => <div className="text-center">Kedatangan</div>, cell: ({ row }: any) => <div className="text-center font-mono text-xs">{row.original.kedatangan}</div>, label: 'Kedatangan' },
@@ -117,7 +115,6 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
 
   return (
     <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-visible text-sm">
-      {/* Diubah dari overflow-hidden menjadi overflow-visible agar popup filter tidak terpotong */}
       <div className={`w-full rounded-t-2xl shadow-sm border overflow-visible transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
         
         <PageHeader 
@@ -155,12 +152,17 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
                   setStatusFilter(filters.status);
                   setStartDateFilter(filters.startDate || '');
                   setEndDateFilter(filters.endDate || '');
-                  setNamaKolFilter(filters.namaKol || '');
-                  setTypeKolFilter(filters.typeKol || '');
+                  setTypeCampaignFilter(filters.typeCampaign || '');
                 }}
                 isDarkMode={isDarkMode}
                 showDateFilter={true}
                 showKolFilters={true}
+                isReservasi={true} /* <-- Mengaktifkan tampilan khusus filter reservasi */
+                campaignOptions={[
+                  { label: 'Semua Type Campaign', value: '' },
+                  { label: 'Reguler', value: 'Reguler' },
+                  { label: 'Helloween', value: 'Helloween' },
+                ]}
                 statusOptions={[
                   { label: 'Semua Status', value: 'Semua' },
                   { label: 'Success', value: 'Success' },

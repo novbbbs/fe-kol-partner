@@ -34,6 +34,11 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
 
   const [dashboardData, setDashboardData] = useState<any>(null);
 
+  // Helper untuk format rupiah
+  const formatRupiah = (amount: number) => {
+    return `Rp ${amount.toLocaleString('id-ID')}`;
+  };
+
   // 1. Fetch Campaign Menggunakan campaignService Modular
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -101,9 +106,15 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
 
   const selectedCampaignObj = campaignOptions.find((opt: any) => String(opt.value) === String(selectedCampaign));
 
-  const totalKolCount = dashboardData?.metrics?.total_kol ?? 0;
-  const totalReservasiCount = dashboardData?.metrics?.total_reservasi ?? 0;
-  const totalVisitorCount = dashboardData?.metrics?.total_visitor ?? 0;
+  // Mendukung data aktual & potensial dari API (fallback ke 0 jika belum ada)
+  const totalKolAktif = dashboardData?.metrics?.total_kol_aktif ?? dashboardData?.metrics?.total_kol ?? 0;
+  const totalKolPotensial = dashboardData?.metrics?.total_kol_potensial ?? dashboardData?.metrics?.total_kol ?? 0;
+
+  const totalReservasiAktif = dashboardData?.metrics?.total_reservasi_aktif ?? dashboardData?.metrics?.total_reservasi ?? 0;
+  const totalReservasiPotensial = dashboardData?.metrics?.total_reservasi_potensial ?? dashboardData?.metrics?.total_reservasi ?? 0;
+
+  const totalVisitorAktif = dashboardData?.metrics?.total_visitor_aktif ?? dashboardData?.metrics?.total_visitor ?? 0;
+  const totalVisitorPotensial = dashboardData?.metrics?.total_visitor_potensial ?? dashboardData?.metrics?.total_visitor ?? 0;
 
   // --- FILTER TOP 5 KOL ---
   const rawTopKol = dashboardData?.top_5_kol || [];
@@ -123,13 +134,14 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
 
   const topKolData = activeTopKol.map((item: any, index: number) => {
     const visitorCount = item.total_visitor ?? 0;
+    const revValue = visitorCount * 30000;
     return {
       id: item.id || index + 1,
       nama_kol: item.nama_kol || item.name || 'Influencer',
       username: item.username || 'username',
       kota_asal: item.kota_asal || item.city_name || 'Kota',
       total_tiket: visitorCount,
-      revenue: `Rp ${(visitorCount * 30000).toLocaleString('id-ID')}`,
+      revenue: formatRupiah(revValue),
       reservasi: item.total_reservasi || 0,
       initials: (item.nama_kol || item.name || 'IN').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
       avatarBg: ['bg-amber-100 text-amber-700', 'bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700', 'bg-rose-100 text-rose-700', 'bg-emerald-100 text-emerald-700'][index % 5]
@@ -140,13 +152,14 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
   const rawTopCity = dashboardData?.top_5_city || [];
   const topCityList = rawTopCity.map((item: any, index: number) => {
     const visitorVal = item.total_visitor || (item.total_kol * 650);
+    const revValue = visitorVal * 30000;
     return {
       rank: index + 1,
       city: item.city_name || item.kota_asal || 'Kota',
       province: item.province_name || 'Jawa Timur',
       kol: item.total_kol || 0,
       visitor: visitorVal,
-      revenue: `Rp ${(visitorVal * 30000).toLocaleString('id-ID')}`
+      revenue: formatRupiah(revValue)
     };
   });
 
@@ -242,35 +255,41 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
       <div className="px-3 md:px-6 space-y-3">
         {/* STATS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-          <StatsCard
-            title="Total KOL"
-            value={totalKolCount}
-            icon={<Users className="w-3.5 h-3.5" />}
-            iconBgColor="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600"
-            footerText=""
-            footerValue=""
-            isDarkMode={isDarkMode}
-          />
+          <div className="border-0 md:border md:border-slate-200 md:dark:border-[#2e303a] md:rounded-xl overflow-hidden shadow-2xs">
+            <StatsCard
+              title="Total KOL"
+              value={`${totalKolAktif} / ${totalKolPotensial}`}
+              icon={<Users className="w-3.5 h-3.5" />}
+              iconBgColor="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600"
+              footerText=""
+              footerValue=""
+              isDarkMode={isDarkMode}
+            />
+          </div>
 
-          <StatsCard
-            title="Total Reservasi"
-            value={totalReservasiCount}
-            icon={<Calendar className="w-3.5 h-3.5" />}
-            iconBgColor="bg-amber-50 dark:bg-amber-950/50 text-amber-600"
-            footerText=""
-            footerValue=""
-            isDarkMode={isDarkMode}
-          />
+          <div className="border-0 md:border md:border-slate-200 md:dark:border-[#2e303a] md:rounded-xl overflow-hidden shadow-2xs">
+            <StatsCard
+              title="Total Reservasi"
+              value={`${totalReservasiAktif} / ${totalReservasiPotensial}`}
+              icon={<Calendar className="w-3.5 h-3.5" />}
+              iconBgColor="bg-amber-50 dark:bg-amber-950/50 text-amber-600"
+              footerText=""
+              footerValue=""
+              isDarkMode={isDarkMode}
+            />
+          </div>
 
-          <StatsCard
-            title="Total Visitor"
-            value={totalVisitorCount}
-            icon={<Eye className="w-3.5 h-3.5" />}
-            iconBgColor="bg-blue-50 dark:bg-blue-950/50 text-blue-600"
-            footerText=""
-            footerValue=""
-            isDarkMode={isDarkMode}
-          />
+          <div className="border-0 md:border md:border-slate-200 md:dark:border-[#2e303a] md:rounded-xl overflow-hidden shadow-2xs">
+            <StatsCard
+              title="Total Visitor"
+              value={`${totalVisitorAktif} / ${totalVisitorPotensial}`}
+              icon={<Eye className="w-3.5 h-3.5" />}
+              iconBgColor="bg-blue-50 dark:bg-blue-950/50 text-blue-600"
+              footerText=""
+              footerValue=""
+              isDarkMode={isDarkMode}
+            />
+          </div>
         </div>
 
         {/* GRID TABEL: TOP 5 KOL & TOP 5 CITY */}
@@ -292,42 +311,47 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="w-full overflow-x-hidden">
+              <table className="w-full text-left border-collapse text-[11px] md:text-xs">
                 <thead>
-                  <tr className={`border-b text-[10px] uppercase font-semibold text-slate-400 ${
+                  <tr className={`border-b text-[9px] md:text-[10px] uppercase font-semibold text-slate-400 ${
                     isDarkMode ? 'border-[#2e303a] bg-[#16171d]' : 'border-slate-100 bg-slate-50/70'
                   }`}>
-                    <th className="py-2.5 px-3 text-center w-12">No</th>
-                    <th className="py-2.5 px-3">Nama KOL</th>
-                    <th className="py-2.5 px-3 text-center">Reservasi</th>
-                    <th className="py-2.5 px-3 text-center">Visitor</th>
-                    <th className="py-2.5 px-3 text-right">Pendapatan</th>
+                    <th className="py-2.5 px-2 text-center w-7">No</th>
+                    <th className="py-2.5 px-2">Nama KOL</th>
+                    <th className="py-2.5 px-1 text-center w-10">Res</th>
+                    <th className="py-2.5 px-1 text-center w-10">Vis</th>
+                    <th className="py-2.5 px-2 text-right">Pendapatan</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[#2e303a]">
                   {topKolData.length > 0 ? (
                     topKolData.map((item: any, idx: number) => (
                       <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition">
-                        <td className="py-2.5 px-3 text-center font-bold">
-                          <span className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 inline-flex items-center justify-center text-[10px] border border-amber-200 dark:border-amber-900/50">
+                        <td className="py-2 px-2 text-center font-bold">
+                          <span className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 inline-flex items-center justify-center text-[9px] md:text-[10px] border border-amber-200 dark:border-amber-900/50">
                             {idx + 1}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center text-xs shrink-0 ${item.avatarBg}`}>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className={`w-6 h-6 rounded-lg font-bold flex items-center justify-center text-[10px] shrink-0 ${item.avatarBg}`}>
                               {item.initials}
                             </div>
                             <div className="min-w-0">
-                              <h4 className="font-bold text-slate-800 dark:text-white truncate">{item.nama_kol}</h4>
-                              <p className="text-[10px] text-slate-400 truncate">@{item.username}</p>
+                              <h4 className="font-bold text-slate-800 dark:text-white truncate text-[11px]">{item.nama_kol}</h4>
+                              <p className="text-[9px] text-slate-400 truncate">@{item.username}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold">{item.reservasi}</td>
-                        <td className="py-2.5 px-3 text-center font-medium">{item.total_tiket}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{item.revenue}</td>
+                        <td className="py-2 px-1 text-center font-bold text-[10px] md:text-[11px]">{item.reservasi}</td>
+                        <td className="py-2 px-1 text-center font-medium text-[10px] md:text-[11px]">{item.total_tiket}</td>
+                        <td className="py-2 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400 text-[9.5px] md:text-xs">
+                          <div className="leading-tight">
+                            <span className="block text-[8.5px] text-slate-400 md:hidden font-normal">Rp</span>
+                            {item.revenue.replace('Rp ', '')}
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : (
@@ -358,42 +382,47 @@ export default function DashboardPage({ isDarkMode = false }: DashboardPageProps
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="w-full overflow-x-hidden">
+              <table className="w-full text-left border-collapse text-[11px] md:text-xs">
                 <thead>
-                  <tr className={`border-b text-[10px] uppercase font-semibold text-slate-400 ${
+                  <tr className={`border-b text-[9px] md:text-[10px] uppercase font-semibold text-slate-400 ${
                     isDarkMode ? 'border-[#2e303a] bg-[#16171d]' : 'border-slate-100 bg-slate-50/70'
                   }`}>
-                    <th className="py-2.5 px-3 text-center w-12">No</th>
-                    <th className="py-2.5 px-3">Kota Asal</th>
-                    <th className="py-2.5 px-3 text-center">KOL Aktif</th>
-                    <th className="py-2.5 px-3 text-center">Visitor</th>
-                    <th className="py-2.5 px-3 text-right">Total Tiket</th>
+                    <th className="py-2.5 px-2 text-center w-7">No</th>
+                    <th className="py-2.5 px-2">Kota Asal</th>
+                    <th className="py-2.5 px-1 text-center w-10">KOL</th>
+                    <th className="py-2.5 px-1 text-center w-10">Vis</th>
+                    <th className="py-2.5 px-2 text-right">Total Tiket</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[#2e303a]">
                   {topCityList.length > 0 ? (
                     topCityList.map((item: any) => (
                       <tr key={item.city} className="hover:bg-slate-50/60 dark:hover:bg-[#16171d]/60 transition">
-                        <td className="py-2.5 px-3 text-center font-bold">
-                          <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center text-[10px] border border-emerald-200 dark:border-emerald-900/50">
+                        <td className="py-2 px-2 text-center font-bold">
+                          <span className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center text-[9px] md:text-[10px] border border-emerald-200 dark:border-emerald-900/50">
                             {item.rank}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 font-bold flex items-center justify-center text-xs shrink-0">
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 font-bold flex items-center justify-center text-[10px] shrink-0">
                               <MapPin className="w-3 h-3" />
                             </div>
                             <div className="min-w-0">
-                              <h4 className="font-bold text-slate-800 dark:text-white truncate">{item.city}</h4>
-                              <p className="text-[10px] text-slate-400 truncate">{item.province}</p>
+                              <h4 className="font-bold text-slate-800 dark:text-white truncate text-[11px]">{item.city}</h4>
+                              <p className="text-[9px] text-slate-400 truncate">{item.province}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold">{item.kol} KOL</td>
-                        <td className="py-2.5 px-3 text-center font-medium">{item.visitor}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{item.revenue}</td>
+                        <td className="py-2 px-1 text-center font-bold text-[10px] md:text-[11px]">{item.kol}</td>
+                        <td className="py-2 px-1 text-center font-medium text-[10px] md:text-[11px]">{item.visitor}</td>
+                        <td className="py-2 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400 text-[9.5px] md:text-xs">
+                          <div className="leading-tight">
+                            <span className="block text-[8.5px] text-slate-400 md:hidden font-normal">Rp</span>
+                            {item.revenue.replace('Rp ', '')}
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : (

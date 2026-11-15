@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, FileSpreadsheet, Filter, Search, Edit2, Ticket, RefreshCw, MoreHorizontal, Calendar } from 'lucide-react';
+import { Plus, FileSpreadsheet, Filter, Search, Edit2, Ticket, RefreshCw, MoreHorizontal, Calendar, Eye } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ import type { Kol } from '../types/kol.type';
 // Import komponen modal terpisah
 import KolCreateModal from '../components/KolCreateModal';
 import KolEditModal from '../components/KolEditModal';
+import KolDetailModal from '../components/KolDetailModal';
 
 interface KolPageProps {
   isDarkMode?: boolean;
@@ -52,20 +53,21 @@ export default function KolPage({
   const setIsModalOpen = externalSetIsModalOpen || setInternalIsModalOpen;
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('Semua');
+  const [statusFilter, setStatusFilter] = useState('ACTIVE');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
 
   const [statusItem, setStatusItem] = useState<Kol | null>(null);
-  
-  // State untuk form modal Regenerate
   const [regenerateItem, setRegenerateItem] = useState<Kol | null>(null);
+
+  // State untuk Modal Detail & Log History
+  const [selectedDetailUsername, setSelectedDetailUsername] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false); 
 
-  // State untuk melacak kolom mana saja yang aktif/dicentang
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     referral_code: true,
     name: true,
@@ -348,7 +350,7 @@ export default function KolPage({
       
       const errorMessage = error.response?.data?.message || 'Terjadi kesalahan pada server.';
 
-      toast.error('KOL gagal dibuat', { 
+      toast.error('KOL gagal disimpan', { 
         description: errorMessage 
       });
 
@@ -490,49 +492,62 @@ export default function KolPage({
     {
       accessorKey: 'actions',
       header: () => <div className="text-center">Aksi</div>,
-      cell: ({ row }: any) => (
-        <div className="flex items-center justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 text-slate-600 dark:text-slate-300 bg-white dark:bg-[#16171d] border-slate-200 dark:border-[#2e303a] hover:bg-slate-100 dark:hover:bg-[#2e303a] rounded-lg shadow-2xs cursor-pointer"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className={`w-40 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
-              <DropdownMenuItem 
-                onClick={() => handleOpenRegenerateModal(row.original)}
-                className="cursor-pointer flex items-center gap-2 text-emerald-600 dark:text-emerald-400 focus:text-emerald-700 dark:focus:text-emerald-300"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Regenerate</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => {
-                  setSelectedKolToEdit(row.original);
-                  if (row.original.province_name || row.original.provinsi) {
-                    fetchCitiesByProvinceName(row.original.province_name || row.original.provinsi);
-                  }
-                  setIsModalOpen(true);
-                }}
-                className="cursor-pointer flex items-center gap-2 text-amber-600 dark:text-amber-400 focus:text-amber-700 dark:focus:text-amber-300"
-              >
-                <Edit2 className="w-4 h-4" />
-                <span>Edit</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
+      cell: ({ row }: any) => {
+        return (
+          <div className="flex items-center justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <div className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 font-medium text-xs transition">
+                  <span>Aksi</span>
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className={`w-44 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
+                
+                {/* TOMBOL DETAIL & LOG HISTORY MENGGUNAKAN KOL DETAIL MODAL */}
+                <DropdownMenuItem 
+                  onClick={() => {
+                    setSelectedDetailUsername(row.original.username);
+                    setIsDetailModalOpen(true);
+                  }}
+                  className="cursor-pointer flex items-center gap-2 text-blue-600 dark:text-blue-400 focus:text-blue-700"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Detail & Log</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem 
+                  onClick={() => handleOpenRegenerateModal(row.original)}
+                  className="cursor-pointer flex items-center gap-2 text-emerald-600 dark:text-emerald-400 focus:text-emerald-700"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Regenerate</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem 
+                  onClick={() => {
+                    setSelectedKolToEdit(row.original);
+                    if (row.original.province_name || row.original.provinsi) {
+                      fetchCitiesByProvinceName(row.original.province_name || row.original.provinsi);
+                    }
+                    setIsModalOpen(true);
+                  }}
+                  className="cursor-pointer flex items-center gap-2 text-amber-600 dark:text-amber-400 focus:text-amber-700"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Edit Data</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
       label: 'Aksi'
     }
   ];
 
   return (
+    // 💡 PERBAIKAN: Hapus isDetailModalOpen dari kondisi blur di bawah ini
     <div className={`space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm transition-all duration-300 ${isModalOpen || regenerateItem ? 'blur-sm brightness-90 pointer-events-none' : ''}`}>
       <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
         
@@ -564,7 +579,7 @@ export default function KolPage({
                 <Filter className="w-4 h-4" />
               </button>
 
-              {((statusFilter && statusFilter !== 'Semua') || startDateFilter || endDateFilter) && (
+              {((statusFilter && statusFilter !== 'ACTIVE') || startDateFilter || endDateFilter) && (
                 <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-[#16171d] pointer-events-none z-20" />
               )}
 
@@ -629,7 +644,7 @@ export default function KolPage({
                   <Card className={`overflow-hidden rounded-2xl border shadow-sm ${isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                     
                     <div className="p-3 pb-2.5 flex items-center justify-between border-b border-slate-100 dark:border-[#2e303a]">
-                      <span className="text-xs font-bold text-slate-800 dark:text-white">ID: #{absoluteIndex}</span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-white">KOL Card</span>
                       <Switch
                         checked={isActive}
                         onCheckedChange={() => handleToggleStatusKol(item)}
@@ -639,7 +654,6 @@ export default function KolPage({
                     </div>
                     
                     <CardContent className="p-3 space-y-3 text-xs">
-                      
                       <div className="text-left py-0.5">
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white">{item.name || item.nama_kol}</h4>
                         <p className="text-[11px] text-slate-400 mt-0.5">@{item.username || '-'}</p>
@@ -676,12 +690,11 @@ export default function KolPage({
                         </div>
                       </div>
 
-                      {/* Periode Campaign Start & End Date (Format sesuai contoh referensi) */}
                       <div className="grid grid-cols-2 gap-2.5 pt-1 text-xs text-left">
                         <div>
                           <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 mb-0.5">
                             <Calendar className="w-3.5 h-3.5" />
-                            <span className="text-[10px] uppercase font-semibold">Mulai Campaign</span>
+                            <span className="text-[10px] uppercase font-semibold">Mulai</span>
                           </div>
                           <span className="font-mono font-medium text-slate-700 dark:text-slate-300 block">
                             {item.campaign_start_date ? String(item.campaign_start_date).split('T')[0] : '-'}
@@ -690,7 +703,7 @@ export default function KolPage({
                         <div>
                           <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 mb-0.5">
                             <Calendar className="w-3.5 h-3.5" />
-                            <span className="text-[10px] uppercase font-semibold">Selesai Campaign</span>
+                            <span className="text-[10px] uppercase font-semibold">Selesai</span>
                           </div>
                           <span className="font-mono font-medium text-slate-700 dark:text-slate-300 block">
                             {item.campaign_end_date ? String(item.campaign_end_date).split('T')[0] : '-'}
@@ -779,7 +792,17 @@ export default function KolPage({
         />
       )}
 
-      {/* Render Modal Edit / Create */}
+      {/* RENDER MODAL DETAIL & LOG HISTORY */}
+      <KolDetailModal 
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailUsername(null);
+        }}
+        username={selectedDetailUsername || ''}
+      />
+
+      {/* RENDER MODAL EDIT ATAU CREATE SECARA KONDISIONAL */}
       {selectedKolToEdit ? (
         <KolEditModal
           isOpen={isModalOpen}
@@ -801,6 +824,11 @@ export default function KolPage({
                 updateFormValue('kota_asal', '');
               }
             }
+          }}
+          onRegenerate={(item) => handleOpenRegenerateModal(item)}
+          onViewDetail={(item) => {
+            setSelectedDetailUsername(item.username);
+            setIsDetailModalOpen(true);
           }}
         />
       ) : (

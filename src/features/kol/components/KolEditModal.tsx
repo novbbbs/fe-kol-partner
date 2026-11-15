@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { RefreshCw, Eye } from 'lucide-react';
 import FormModal, { type FieldConfig } from '../../../components/FormModal';
 import type { Kol } from '../types/kol.type';
 
@@ -12,6 +13,8 @@ interface KolEditModalProps {
   cityOptions: { label: string; value: string }[];
   campaignOptions: { label: string; value: string }[];
   onProvinceChange: (provinceName: string, updateFormValue?: any) => void;
+  onRegenerate?: (item: Kol) => void;
+  onViewDetail?: (item: Kol) => void;
 }
 
 export default function KolEditModal({
@@ -24,6 +27,8 @@ export default function KolEditModal({
   cityOptions,
   campaignOptions,
   onProvinceChange,
+  onRegenerate,
+  onViewDetail,
 }: KolEditModalProps) {
   
   const editFields: FieldConfig[] = useMemo(() => {
@@ -88,10 +93,37 @@ export default function KolEditModal({
       onClose={onClose}
       onSubmitSuccess={onSubmitSuccess}
       initialData={initialData}
-      titleCreate="Edit Data KOL"
-      titleEdit="Edit Data KOL"
+      titleCreate="Tambah Data KOL"
+      titleEdit="Edit Data & Aksi KOL"
       fields={editFields}
       isDarkMode={isDarkMode}
+      customFooterButtons={initialData ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              onClose(); // Tutup modal edit dulu agar dialog SweetAlert/Regenerate muncul di atasnya
+              if (onViewDetail) onViewDetail(initialData);
+            }}
+            className="px-3 h-9 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer shadow-sm transition"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Detail & Log</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => {
+              onClose(); // Tutup modal edit dulu
+              if (onRegenerate) onRegenerate(initialData);
+            }}
+            className="px-3 h-9 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5 cursor-pointer shadow-sm transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Regenerate</span>
+          </button>
+        </div>
+      ) : undefined}
     />
   );
 }

@@ -21,6 +21,13 @@ export const kolService = {
     return response.data.data || response.data;
   },
 
+  // 👇 METHOD BARU UNTUK MENGAMBIL LOG HISTORY KOL BERDASARKAN USERNAME
+  async getKolHistory(username: string): Promise<any[]> {
+    const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
+    const response = await api.get(`/kols/history/${cleanUsername}`);
+    return response.data.data || response.data;
+  },
+
   async createKol(data: Partial<Kol>): Promise<Kol> {
     // Sanitasi data untuk memastikan tipe data & format bersih sebelum dikirim ke backend
     const sanitizedData = {
