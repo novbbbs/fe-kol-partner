@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, FileSpreadsheet, Filter, Search, Edit2, Ticket, RefreshCw, MoreHorizontal, Calendar, Eye } from 'lucide-react';
+import { Plus, FileSpreadsheet, Filter, Search, Edit2, Ticket, RefreshCw, Calendar, Eye } from 'lucide-react';
 import { PiUsers } from 'react-icons/pi';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -30,18 +30,19 @@ import type { Kol } from '../types/kol.type';
 // Import komponen modal terpisah
 import KolCreateModal from '../components/KolCreateModal';
 import KolEditModal from '../components/KolEditModal';
-import KolDetailModal from '../components/KolDetailModal';
 
 interface KolPageProps {
   isDarkMode?: boolean;
   isModalOpen?: boolean;                     
   setIsModalOpen?: (open: boolean) => void;  
+  onOpenDetailModal?: (username: string) => void; // 💡 Ditambahkan agar sesuai dengan App.tsx
 }
 
 export default function KolPage({ 
   isDarkMode = false, 
   isModalOpen: externalIsModalOpen, 
-  setIsModalOpen: externalSetIsModalOpen 
+  setIsModalOpen: externalSetIsModalOpen,
+  onOpenDetailModal 
 }: KolPageProps) {
   const { kols, refetch } = useKol();
 
@@ -59,10 +60,6 @@ export default function KolPage({
 
   const [statusItem, setStatusItem] = useState<Kol | null>(null);
   const [regenerateItem, setRegenerateItem] = useState<Kol | null>(null);
-
-  // State untuk Modal Detail & Log History
-  const [selectedDetailUsername, setSelectedDetailUsername] = useState<string | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [pendingFormData, setPendingFormData] = useState<Record<string, any> | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -497,18 +494,18 @@ export default function KolPage({
           <div className="flex items-center justify-center">
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <div className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 font-medium text-xs transition">
+                <div className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs cursor-pointer flex items-center justify-center font-medium text-xs transition">
                   <span>Aksi</span>
-                  <MoreHorizontal className="w-3.5 h-3.5" />
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className={`w-44 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200'}`}>
                 
-                {/* TOMBOL DETAIL & LOG HISTORY MENGGUNAKAN KOL DETAIL MODAL */}
+                {/* TOMBOL DETAIL & LOG HISTORY MENGGUNAKAN GLOBAL PROP onOpenDetailModal */}
                 <DropdownMenuItem 
                   onClick={() => {
-                    setSelectedDetailUsername(row.original.username);
-                    setIsDetailModalOpen(true);
+                    if (onOpenDetailModal) {
+                      onOpenDetailModal(row.original.username);
+                    }
                   }}
                   className="cursor-pointer flex items-center gap-2 text-blue-600 dark:text-blue-400 focus:text-blue-700"
                 >
@@ -547,8 +544,7 @@ export default function KolPage({
   ];
 
   return (
-    // 💡 PERBAIKAN: Hapus isDetailModalOpen dari kondisi blur di bawah ini
-    <div className={`space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm transition-all duration-300 ${isModalOpen || regenerateItem ? 'blur-sm brightness-90 pointer-events-none' : ''}`}>
+    <div className="space-y-6 pb-24 md:pb-6 relative z-10 overflow-x-hidden text-sm">
       <div className={`w-full rounded-t-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
         
         <PageHeader 
@@ -643,22 +639,24 @@ export default function KolPage({
                 <div key={item.id || item.uid || absoluteIndex} className="block md:hidden mb-3">
                   <Card className={`overflow-hidden rounded-2xl border shadow-sm ${isDarkMode ? 'bg-[#16171d] border-[#2e303a] text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                     
-                    <div className="p-3 pb-2.5 flex items-center justify-between border-b border-slate-100 dark:border-[#2e303a]">
-                      <span className="text-xs font-bold text-slate-800 dark:text-white">KOL Card</span>
-                      <Switch
-                        checked={isActive}
-                        onCheckedChange={() => handleToggleStatusKol(item)}
-                        style={{ backgroundColor: isActive ? '#0d8a6a' : '#e11d48' }}
-                        className="cursor-pointer shadow-2xs transition-colors scale-90"
-                      />
+                    {/* BAGIAN ATAS: Nama di kiri, Toggle Status di kanan sendiri */}
+                    <div className="p-3.5 pb-3 flex items-center justify-between border-b border-slate-100 dark:border-[#2e303a]">
+                      <div className="text-left min-w-0 pr-2">
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{item.name || item.nama_kol}</h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5 truncate">@{item.username || '-'}</p>
+                      </div>
+
+                      <div className="shrink-0">
+                        <Switch
+                          checked={isActive}
+                          onCheckedChange={() => handleToggleStatusKol(item)}
+                          style={{ backgroundColor: isActive ? '#0d8a6a' : '#e11d48' }}
+                          className="cursor-pointer shadow-2xs transition-colors scale-95"
+                        />
+                      </div>
                     </div>
                     
                     <CardContent className="p-3 space-y-3 text-xs">
-                      <div className="text-left py-0.5">
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">{item.name || item.nama_kol}</h4>
-                        <p className="text-[11px] text-slate-400 mt-0.5">@{item.username || '-'}</p>
-                      </div>
-
                       <div className={`p-2.5 rounded-xl border flex items-center gap-3 ${isDarkMode ? 'bg-[#1f2028] border-[#2e303a]' : 'bg-slate-50/80 border-slate-100'}`}>
                         <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                           <Ticket className="w-4 h-4" />
@@ -792,16 +790,6 @@ export default function KolPage({
         />
       )}
 
-      {/* RENDER MODAL DETAIL & LOG HISTORY */}
-      <KolDetailModal 
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedDetailUsername(null);
-        }}
-        username={selectedDetailUsername || ''}
-      />
-
       {/* RENDER MODAL EDIT ATAU CREATE SECARA KONDISIONAL */}
       {selectedKolToEdit ? (
         <KolEditModal
@@ -827,8 +815,7 @@ export default function KolPage({
           }}
           onRegenerate={(item) => handleOpenRegenerateModal(item)}
           onViewDetail={(item) => {
-            setSelectedDetailUsername(item.username);
-            setIsDetailModalOpen(true);
+            if (onOpenDetailModal) onOpenDetailModal(item.username);
           }}
         />
       ) : (

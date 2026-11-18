@@ -4,25 +4,29 @@ import Sidebar from './components/Sidebar';
 import DashboardPage from './features/dashboard/pages/DashboardPage';
 import KolPage from './features/kol/pages/KolPage';
 import CampaignPage from './features/campaign/pages/CampaignPage';
-import ReservasiPage from './features/reservasi/pages/ReservasiPage'; // <-- Mengimpor ReservasiPage modular
+import ReservasiPage from './features/reservasi/pages/ReservasiPage';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Toaster } from './components/ui/sonner';
 
 import LoginPage from './features/Login/pages/LoginPage';
 import { authService } from './features/Login/services/authService';
 
+// Import modal detail KOL
+import KolDetailModal from './features/kol/components/KolDetailModal';
+
 export default function App() {
-  // Murni mulai dari null agar pertama buka SELALU ke halaman login
   const [user, setUser] = useState<any>(() => authService.getUser());
-  
-  // Tipe data activeTab mencakup 'dashboard' | 'kol' | 'campaign' | 'reservasi'
   const [activeTab, setActiveTab] = useState<'dashboard' | 'kol' | 'campaign' | 'reservasi'>('dashboard');
   
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
 
-  // Status global untuk mendeteksi apakah modal form sedang terbuka
+  // Status global modal form (create/edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Status global untuk Modal Detail & Log History
+  const [selectedDetailUsername, setSelectedDetailUsername] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const handleLogout = async () => {
     await authService.logout();
@@ -44,7 +48,6 @@ export default function App() {
     },
   };
 
-  // JIKA BELUM LOGIN / USER KOSONG, Wajib Tampilkan Halaman Login
   if (!user) {
     return (
       <>
@@ -58,7 +61,8 @@ export default function App() {
     <TooltipProvider>
       <Toaster {...customToastOptions} />
 
-      <div className={`min-h-screen flex overflow-x-hidden transition-colors duration-300 ${isDarkMode ? 'dark bg-[#121318] text-white' : 'bg-slate-50 text-slate-800'}`}>
+      {/* Kontainer utama aplikasi: Jika modal form ATAU modal detail aktif, seluruh layout ikut ter-blur */}
+      <div className={`min-h-screen flex overflow-x-hidden transition-colors duration-300 ${isDarkMode ? 'dark bg-[#121318] text-white' : 'bg-slate-50 text-slate-800'} ${isModalOpen || isDetailModalOpen ? 'blur-sm brightness-90' : ''}`}>
         
         {/* SIDEBAR */}
         <div className="fixed inset-y-0 left-0 z-40 flex">
@@ -70,7 +74,7 @@ export default function App() {
             onCloseMobile={() => setIsSidebarOpen(false)}
             user={user}
             onLogout={handleLogout}
-            isModalOpen={isModalOpen} 
+            isModalOpen={isModalOpen || isDetailModalOpen} 
           />
         </div>
 
@@ -114,13 +118,34 @@ export default function App() {
 
           <main className={`flex-1 ${activeTab === 'dashboard' ? 'p-0' : 'pt-3 px-6 pb-6 md:px-8 md:pb-8'}`}>
             {activeTab === 'dashboard' && <DashboardPage isDarkMode={isDarkMode} />}
-            {activeTab === 'kol' && <KolPage isDarkMode={isDarkMode} isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} />}
+            {activeTab === 'kol' && (
+              <KolPage 
+                isDarkMode={isDarkMode} 
+                isModalOpen={isModalOpen} 
+                setIsModalOpen={setIsModalOpen}
+                onOpenDetailModal={(username: string) => {
+                  setSelectedDetailUsername(username);
+                  setIsDetailModalOpen(true);
+                }}
+              />
+            )}
             {activeTab === 'campaign' && <CampaignPage isDarkMode={isDarkMode} />}
             {activeTab === 'reservasi' && <ReservasiPage isDarkMode={isDarkMode} />}
           </main>
         </div>
 
       </div>
+
+      {/* Modal Detail & Log History Global */}
+      <KolDetailModal 
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailUsername(null);
+        }}
+        username={selectedDetailUsername || ''}
+        isDarkMode={isDarkMode}
+      />
     </TooltipProvider>
   );
 }

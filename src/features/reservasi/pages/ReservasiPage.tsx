@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useReservasi } from '@/features/reservasi/hooks/useReservasi';
+import { campaignService } from '@/features/campaign/services/campaign.service'; // <-- Import service campaign
 import type { Reservasi } from '@/features/reservasi/types/reservasi.type';
 
 interface ReservasiPageProps {
@@ -26,6 +27,56 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [typeCampaignFilter, setTypeCampaignFilter] = useState('');
+
+  // State untuk menampung opsi campaign dinamis dari database/API
+  const [campaignOptions, setCampaignOptions] = useState<{ label: string; value: string }[]>([
+    { label: 'Memuat tipe campaign...', value: '' }
+  ]);
+
+  // Fetch Campaign Dinamis agar campaign seperti "test" ikut muncul
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      try {
+        const response = await campaignService.getAllCampaigns();
+        const rawData = Array.isArray(response) ? response : (response as any)?.data || [];
+        
+        const activeCampaigns = rawData.filter((item: any) => {
+          const statusVal = item.status;
+          const statusStr = String(statusVal || '').toLowerCase().trim();
+          return statusVal === 1 || statusVal === '1' || statusStr === 'active' || statusStr === 'aktif';
+        });
+
+        const formatted = activeCampaigns.map((item: any) => ({
+          label: item.campaign_name || item.name || item.title,
+          value: item.campaign_name || item.name || item.title,
+        }));
+
+        // Gabungkan opsi default "Semua Type Campaign", "Reguler", dan data dari API secara unik
+        const uniqueCampaigns = Array.from(
+          new Map(
+            [
+              { label: 'Semua Type Campaign', value: '' },
+              { label: 'Reguler', value: 'Reguler' },
+              ...formatted
+            ].map(item => [item.value.toLowerCase(), item])
+          ).values()
+        );
+
+        if (uniqueCampaigns.length > 0) {
+          setCampaignOptions(uniqueCampaigns);
+        }
+      } catch (error) {
+        console.error('Gagal mengambil data campaign:', error);
+        setCampaignOptions([
+          { label: 'Semua Type Campaign', value: '' },
+          { label: 'Reguler', value: 'Reguler' },
+          { label: 'Helloween', value: 'Helloween' },
+        ]);
+      }
+    };
+
+    fetchCampaigns();
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(inputValue), 400);
@@ -157,12 +208,8 @@ export default function ReservasiPage({ isDarkMode = false }: ReservasiPageProps
                 isDarkMode={isDarkMode}
                 showDateFilter={true}
                 showKolFilters={true}
-                isReservasi={true} /* <-- Mengaktifkan tampilan khusus filter reservasi */
-                campaignOptions={[
-                  { label: 'Semua Type Campaign', value: '' },
-                  { label: 'Reguler', value: 'Reguler' },
-                  { label: 'Helloween', value: 'Helloween' },
-                ]}
+                isReservasi={true} 
+                campaignOptions={campaignOptions} /* <-- Menggunakan state campaignOptions dinamis */
                 statusOptions={[
                   { label: 'Semua Status', value: 'Semua' },
                   { label: 'Success', value: 'Success' },
